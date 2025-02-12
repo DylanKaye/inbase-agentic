@@ -163,21 +163,25 @@ async def chat_interface():
             print("Goodbye!")
             break
 
-async def view_results(base_arg: str, seat_arg: str):
+async def view_results(base_arg: str, seat_arg: str) -> str:
+    """
+    Reads the analysis file and returns the result as a string.
+    """
     try:
         result_file = f"testing/{base_arg}-{seat_arg}-opt.txt"
-        
-        try:
+        if os.path.exists(result_file):
             with open(result_file, "r") as f:
                 analyze_result = f.read()
-            
-            print("\n=== Optimization Results ===")
-            print(f"Results for {base_arg}-{seat_arg}:")
-            print(analyze_result)
-        except FileNotFoundError:
-            print(f"No results found at {result_file}. Please ensure the optimization has completed.")
+            output = (
+                f"=== Optimization Results ===\n"
+                f"Results for {base_arg}-{seat_arg}:\n"
+                f"{analyze_result}"
+            )
+        else:
+            output = f"No results found at {result_file}. Please ensure the optimization has completed."
     except Exception as e:
-        print(f"Error reading results: {str(e)}")
+        output = f"Error reading results: {str(e)}"
+    return output
 
 if __name__ == "__main__":
     asyncio.run(chat_interface()) 

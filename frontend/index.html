@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Optimization Tool Interface</title>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      background-color: #f4f4f4; 
+      margin: 0; 
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 4px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+    button {
+      font-size: 16px;
+      padding: 10px 20px;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #output {
+      margin-top: 20px;
+      background-color: #f8f8f8;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Optimization Tool</h1>
+    <p>Enter a command (e.g., <em>run optimization with base bur seat fa</em> or <em>help</em>):</p>
+    <textarea id="commandInput" placeholder="Enter Command Here"></textarea>
+    <br />
+    <button onclick="sendCommand()">Send Command</button>
+    <div id="output"></div>
+  </div>
+  
+  <script>
+    async function sendCommand() {
+      const command = document.getElementById("commandInput").value;
+      const outputDiv = document.getElementById("output");
+
+      try {
+        const response = await fetch("/command", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ command: command })
+        });
+        
+        if (!response.ok) {
+          outputDiv.textContent = "Error: " + response.statusText;
+          return;
+        }
+        
+        const data = await response.json();
+        // Display response logs or instructions
+        let result = "";
+        if (data.instructions) {
+          result += data.instructions;
+        }
+        if (data.message) {
+          result += data.message;
+        }
+        if (data.logs) {
+          result += data.logs.join("\n");
+        }
+        outputDiv.textContent = result;
+      } catch (error) {
+        outputDiv.textContent = "Error: " + error;
+      }
+    }
+  </script>
+</body>
+</html> 

@@ -3,6 +3,8 @@ import asyncio
 import os
 from datetime import datetime
 import uvicorn
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 
 # Import functions and variables from your existing modules.
 from chat_tool import (
@@ -41,6 +43,16 @@ Simply type "help" to receive these instructions.
 
 app = FastAPI(title="Optimization Chat Tool API")
 
+# Optionally, allow CORS if accessing from a different origin
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Define API endpoints first.
 @app.post("/command")
 async def process_command(payload: dict):
     """
@@ -115,8 +127,9 @@ async def process_command(payload: dict):
         logs.append(f"Uploaded results for base={base_arg}, seat={seat_arg} to NOC.")
 
     elif program_type == ProgramType.ANALYZE:
-        await view_results(base_arg, seat_arg)
-        logs.append(f"Analyzed results for base={base_arg}, seat={seat_arg}.")
+        # Capture and return the analyzed results
+        analyze_output = await view_results(base_arg, seat_arg)
+        logs.append(analyze_output)
 
     else:
         logs.append(f"Unexpected program type: {program_type}.")
@@ -129,6 +142,9 @@ async def help_command():
     GET endpoint that returns usage instructions.
     """
     return {"instructions": HELP_TEXT.strip()}
+
+# Then mount the static files.
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
 if __name__ == "__main__":
     # Run the API server on port 8000.
