@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Dict, Literal
 from pydantic import BaseModel, Field
-from pydantic_ai import Agent, RunContext
+from pydantic_ai.agent import Agent, RunContext
 import subprocess
 import os
 from datetime import datetime
