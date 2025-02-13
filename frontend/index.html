@@ -11,12 +11,22 @@
       padding: 20px;
     }
     .container {
-      max-width: 600px;
+      max-width: 800px;
       margin: auto;
       background: #fff;
       padding: 20px;
       border-radius: 4px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      display: flex;
+      gap: 20px;
+    }
+    .input-section {
+      flex: 1;
+    }
+    .history-section {
+      flex: 1;
+      border-left: 1px solid #ddd;
+      padding-left: 20px;
     }
     textarea {
       width: 100%;
@@ -46,54 +56,180 @@
       border: 1px solid #ccc;
       border-radius: 4px;
       white-space: pre-wrap;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    #chatHistory {
+      max-height: 500px;
+      overflow-y: auto;
+      padding: 10px;
+      background-color: #f8f8f8;
+      border-radius: 4px;
+    }
+    .chat-entry {
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #ddd;
+    }
+    .command {
+      color: #007BFF;
+      font-weight: bold;
+    }
+    .response {
+      margin-top: 5px;
+      color: #333;
+    }
+    .timestamp {
+      font-size: 0.8em;
+      color: #666;
+      margin-bottom: 5px;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Optimization Tool</h1>
-    <p>Enter a command (e.g., <em>run optimization with base bur seat fa</em> or <em>help</em>):</p>
-    <textarea id="commandInput" placeholder="Enter Command Here"></textarea>
-    <br />
-    <button onclick="sendCommand()">Send Command</button>
-    <div id="output"></div>
+    <div class="input-section">
+      <h1>Optimization Tool</h1>
+      <p>Enter a command (e.g., <em>run optimization with base bur seat fa</em> or <em>commands</em>):</p>
+      <textarea id="commandInput" placeholder="Enter Command Here"></textarea>
+      <br />
+      <button onclick="sendCommand()">Send Command</button>
+      <div id="output"></div>
+    </div>
+    <div class="history-section">
+      <h2>Chat History</h2>
+      <div id="chatHistory"></div>
+    </div>
   </div>
   
   <script>
-    async function sendCommand() {
-      const command = document.getElementById("commandInput").value;
-      const outputDiv = document.getElementById("output");
+    // Add event listener for Enter key
+    document.getElementById('commandInput').addEventListener('keypress', function(e) {
+        // Check if Enter was pressed without Shift (Shift+Enter allows for new lines)
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault(); // Prevent default behavior (new line)
+            sendCommand(); // Send the command
+        }
+    });
 
-      try {
-        const response = await fetch("/command", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ command: command })
-        });
+    async function sendCommand() {
+        const commandInput = document.getElementById('commandInput');
+        const command = commandInput.value;
         
-        if (!response.ok) {
-          outputDiv.textContent = "Error: " + response.statusText;
-          return;
+        if (!command) return;
+
+        try {
+            const response = await fetch('/command', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ command: command })
+            });
+            
+            const data = await response.json();
+            
+            // Create chat history entry
+            const historyEntry = document.createElement('div');
+            historyEntry.className = 'chat-entry';
+            
+            // Add timestamp
+            const timestamp = document.createElement('div');
+            timestamp.className = 'timestamp';
+            timestamp.textContent = new Date().toLocaleTimeString();
+            historyEntry.appendChild(timestamp);
+            
+            // Add command
+            const commandDiv = document.createElement('div');
+            commandDiv.className = 'command';
+            commandDiv.textContent = `> ${command}`;
+            historyEntry.appendChild(commandDiv);
+            
+            // Add response
+            const responseDiv = document.createElement('div');
+            responseDiv.className = 'response';
+            if (data.instructions) {
+                responseDiv.innerHTML = data.instructions.replace(/\n/g, '<br>');
+            } else if (data.logs) {
+                responseDiv.innerHTML = data.logs.join('<br>');
+            } else if (data.message) {
+                responseDiv.textContent = data.message;
+            } else if (data.all_statuses) {
+                const statusHtml = data.all_statuses.map(status => {
+                    let statusText = `<strong>Base ${status.base}-${status.seat}:</strong><br>`;
+                    if (status.error) {
+                        statusText += `Error: ${status.error}`;
+                    } else if (status.running !== undefined) {
+                        // Status check response
+                        statusText += status.running ? "Status: Currently Running<br>" : "";
+                        if (status.status_info) {
+                            statusText += `${status.status_info}<br>`;
+                        }
+                        if (status.last_updated) {
+                            statusText += `Last Updated: ${status.last_updated}`;
+                        }
+                    } else {
+                        // Run command response
+                        statusText += `Status: ${status.status}`;
+                        if (status.error) {
+                            statusText += `<br>Error: ${status.error}`;
+                        }
+                    }
+                    return statusText;
+                }).join('<br><br>');
+                responseDiv.innerHTML = statusHtml;
+            }
+            historyEntry.appendChild(responseDiv);
+            
+            // Add to chat history
+            const chatHistory = document.getElementById('chatHistory');
+            chatHistory.insertBefore(historyEntry, chatHistory.firstChild);
+            
+            // Clear the input box after sending
+            commandInput.value = '';
+            
+            // Display the response in output area
+            const outputDiv = document.getElementById('output');
+            if (data.instructions) {
+                outputDiv.innerHTML = data.instructions.replace(/\n/g, '<br>');
+            } else if (data.logs) {
+                outputDiv.innerHTML = data.logs.join('<br>');
+            } else if (data.message) {
+                outputDiv.innerHTML = data.message;
+            } else if (data.all_statuses) {
+                const statusHtml = data.all_statuses.map(status => {
+                    let statusText = `<strong>Base ${status.base}-${status.seat}:</strong><br>`;
+                    if (status.error) {
+                        statusText += `Error: ${status.error}`;
+                    } else if (status.running !== undefined) {
+                        // Status check response
+                        statusText += status.running ? "Status: Currently Running<br>" : "";
+                        if (status.status_info) {
+                            statusText += `${status.status_info}<br>`;
+                        }
+                        if (status.last_updated) {
+                            statusText += `Last Updated: ${status.last_updated}`;
+                        }
+                    } else {
+                        // Run command response
+                        statusText += `Status: ${status.status}`;
+                        if (status.error) {
+                            statusText += `<br>Error: ${status.error}`;
+                        }
+                    }
+                    return statusText;
+                }).join('<br><br>');
+                outputDiv.innerHTML = statusHtml;
+            }
+            
+            // Scroll chat history to top (since new entries are prepended)
+            chatHistory.scrollTop = 0;
+            
+        } catch (error) {
+            console.error('Error:', error);
+            const outputDiv = document.getElementById('output');
+            outputDiv.innerHTML = `<p class="error">Error sending command: ${error.message}</p>`;
         }
-        
-        const data = await response.json();
-        // Display response logs or instructions
-        let result = "";
-        if (data.instructions) {
-          result += data.instructions;
-        }
-        if (data.message) {
-          result += data.message;
-        }
-        if (data.logs) {
-          result += data.logs.join("\n");
-        }
-        outputDiv.textContent = result;
-      } catch (error) {
-        outputDiv.textContent = "Error: " + error;
-      }
     }
   </script>
 </body>

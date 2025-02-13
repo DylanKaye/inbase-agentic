@@ -30,9 +30,17 @@ intent_agent = Agent(
     'gpt-3.5-turbo',
     result_type=IntentResult,
     system_prompt="""
-    Classify as RUN/ANALYZE/STATUS/UPLOAD. Extract base (bur/dal/las/scf/opf/oak/sna) and seat (ca/fo/fa).
+    Classify as RUN/ANALYZE/STATUS/UPLOAD. 
+    Only extract base and seat if they exactly match these values:
+    Valid bases: bur, dal, las, scf, opf, oak, sna
+    Valid seats: ca, fo, fa
+    Do not extract any other values as base or seat.
+
     Format: intent, base=X, seat=Y
     Example: "check status bur fa" → STATUS, base=bur, seat=fa
+    Example: "check status xyz fa" → STATUS, base=None, seat=fa
+    Example: "run optimization bur xy" → RUN, base=bur, seat=None
+    Note: The command "commands" should be handled separately before intent detection.
     """
 )
 
@@ -109,10 +117,36 @@ async def determine_intent(user_input: str) -> tuple[ProgramType, Optional[str],
     Uses the intent agent to determine intent and extract arguments.
     Returns (intent, base_arg, seat_arg)
     """
+    # Pre-process common command patterns
+    input_lower = user_input.lower()
+    if input_lower in ['command', 'commands']:
+        return None, None, None
+    if input_lower.startswith('check all'):
+        # Extract seat from "check all {seat}"
+        parts = input_lower.split()
+        if len(parts) >= 3:
+            return ProgramType.STATUS, "all", parts[2]
+
     result = await intent_agent.run(f"Extract from: {user_input}")
     print(f"Intent: {result.data.intent} ({result.data.confidence:.2f})")
     if result.data.base_arg or result.data.seat_arg:
         print(f"Found arguments - Base: {result.data.base_arg}, Seat: {result.data.seat_arg}")
+   
+    # If confidence is not 100%, return special values to indicate clarification needed
+    if result.data.confidence < 1.0:
+        explanation = (
+            f"I'm not completely sure what you want to do (confidence: {result.data.confidence:.2f}). "
+            f"I think you want to {result.data.intent.lower()}"
+        )
+        if result.data.base_arg:
+            explanation += f" for base {result.data.base_arg}"
+        if result.data.seat_arg:
+            explanation += f" with seat {result.data.seat_arg}"
+        explanation += ". Please confirm or rephrase your command."
+        
+        # Return special values that api_server will recognize
+        return "CLARIFY", explanation, None
+
     return result.data.intent, result.data.base_arg, result.data.seat_arg
 
 async def run_optimization_program(program_type: ProgramType, base_arg: str, seat_arg: str, working_dir: str = ".", timeout: int = 30) -> None:
