@@ -158,6 +158,14 @@ async def determine_intent(user_input: str) -> tuple[ProgramType, Optional[str],
         if len(parts) >= 3:
             return ProgramType.RUN, "all", parts[2].upper()
 
+    # Handle simple "run base seat" format
+    words = input_lower.split()
+    if len(words) == 3 and words[0] == 'run':
+        base = words[1]
+        seat = words[2]
+        if base in VALID_BASES and seat in VALID_SEATS:
+            return ProgramType.RUN, base.upper(), seat.upper()
+
     # Convert potential base/seat values to uppercase while preserving the rest
     words = user_input.split()
     processed_words = []
@@ -193,21 +201,65 @@ async def run_optimization_program(program_type: ProgramType, base_arg: str, sea
         script = "optanalyzer.py"
         action = "Analyzing optimization results"
     
-    command = f"python {script} {base_arg} {seat_arg}"
+    # Use Python from the virtual environment
+    venv_python = os.path.expanduser("myenv/bin/python")
+    if not os.path.exists(venv_python):
+        # Try common alternative paths
+        alt_paths = [
+            "./myenv/bin/python",
+            "../myenv/bin/python",
+            os.path.expanduser("~/myenv/bin/python"),
+            os.path.join(os.getcwd(), "myenv/bin/python")
+        ]
+        for path in alt_paths:
+            if os.path.exists(path):
+                venv_python = path
+                break
+        else:
+            raise FileNotFoundError(f"Could not find Python in virtual environment. Tried paths: {[venv_python] + alt_paths}")
+            
+    command = f"{venv_python} {script} {base_arg} {seat_arg}"
     print(f"{action} with command: {command}")
+    print(f"Using Python from: {venv_python}")
     
-    # Create task for program execution
-    process = await asyncio.create_subprocess_exec(
-        "python",
-        script,
-        base_arg,
-        seat_arg,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
-    )
-    
-    # Don't wait for completion
-    return process
+    try:
+        # Get absolute path to the script
+        script_path = os.path.abspath(script)
+        if not os.path.exists(script_path):
+            raise FileNotFoundError(f"Script not found: {script_path}")
+            
+        # Get the current working directory for debugging
+        current_dir = os.getcwd()
+        script_dir = os.path.dirname(script_path)
+        print(f"Current directory: {current_dir}")
+        print(f"Script directory: {script_dir}")
+        print(f"Script path: {script_path}")
+            
+        # Create task for program execution
+        process = await asyncio.create_subprocess_exec(
+            venv_python,
+            script_path,
+            base_arg,
+            seat_arg,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=current_dir  # Use current directory to maintain relative path relationships
+        )
+        
+        print(f"Started process with PID: {process.pid}")
+        
+        # Capture any immediate errors
+        stdout_data, stderr_data = await process.communicate()
+        if stdout_data:
+            print(f"Process stdout: {stdout_data.decode()}")
+        if stderr_data:
+            print(f"Process stderr: {stderr_data.decode()}")
+            
+        return process
+        
+    except Exception as e:
+        print(f"Error running optimization: {str(e)}")
+        raise
 
 if __name__ == "__main__":
     async def main():

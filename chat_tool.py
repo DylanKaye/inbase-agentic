@@ -15,16 +15,38 @@ BASES = ["bur", "dal", "las", "scf", "opf", "oak", "sna"]
 async def run_optimization_async(program_type: ProgramType, base_arg: str, seat_arg: str):
     """Run optimization asynchronously and update status"""
     try:
+        print(f"\nStarting optimization process for base={base_arg}, seat={seat_arg}")
         process = await run_optimization_program(program_type, base_arg, seat_arg)
+        
         # Store process for status checking
         key = f"{base_arg}-{seat_arg}"
         running_optimizations[key] = process
-        print(f"Optimization started for base={base_arg}, seat={seat_arg}")
+        
+        # Monitor the process
+        try:
+            stdout_data, stderr_data = await process.communicate()
+            if stdout_data:
+                print(f"Process stdout: {stdout_data.decode()}")
+            if stderr_data:
+                print(f"Process stderr: {stderr_data.decode()}")
+                
+            if process.returncode != 0:
+                print(f"Process failed with return code: {process.returncode}")
+                if stderr_data:
+                    print(f"Error output: {stderr_data.decode()}")
+                    
+        except Exception as e:
+            print(f"Error monitoring process: {str(e)}")
+            
+        print(f"Optimization process completed for base={base_arg}, seat={seat_arg}")
+        return process
+        
     except Exception as e:
         print(f"\nFailed to start optimization for base={base_arg}, seat={seat_arg}: {str(e)}")
         key = f"{base_arg}-{seat_arg}"
         if key in running_optimizations:
             del running_optimizations[key]
+        raise
 
 def check_status(base_arg: str, seat_arg: str):
     """Check the current status of optimization for given base and seat"""

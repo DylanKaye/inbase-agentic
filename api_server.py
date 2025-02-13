@@ -65,30 +65,38 @@ async def process_command(payload: dict):
     if not command:
         raise HTTPException(status_code=400, detail="Command not provided.")
 
+    print(f"\nReceived command: {command}")  # Debug log
+
     # Use your existing AI agent to determine the intent and extract arguments.
     program_type, base_arg, seat_arg = await determine_intent(command)
-    program_type, base_arg, seat_arg = "ANALYZE", 'SNA', 'CA'
+    
+    print(f"Parsed intent: type={program_type}, base={base_arg}, seat={seat_arg}")  # Debug log
     
     # Handle unrecognized commands
     if program_type == "UNRECOGNIZED":
+        print("Command was unrecognized")  # Debug log
         return {"message": "I'm not sure what you want to do. Please try rephrasing your command or type 'commands' to see available options."}
     
     # Handle clarification requests
     if program_type == "CLARIFY":
+        print("Clarification needed")  # Debug log
         return {"message": base_arg}  # base_arg contains the explanation
     
     # Handle the commands request
     if program_type is None and base_arg is None and seat_arg is None:
+        print("Returning help text")  # Debug log
         return {"instructions": HELP_TEXT.strip()}
     
     logs = []  # We'll accumulate messages that will be returned to the client.
 
     # Ensure the seat argument is present.
     if not seat_arg:
+        print("Missing seat argument")  # Debug log
         return {"message": "Seat argument is missing in your command."}
     
     # If "all" bases are requested, process for each base.
     if base_arg == "all":
+        print("Processing all bases")  # Debug log
         # Only allow "all" with RUN and STATUS commands
         if program_type not in [ProgramType.RUN, ProgramType.STATUS]:
             return {"message": f"The 'all' option is only available for 'run' and 'check' commands, not for {program_type.value}"}
@@ -162,22 +170,32 @@ async def process_command(payload: dict):
     
     # Ensure a base argument was extracted.
     if not base_arg:
+        print("Missing base argument")  # Debug log
         return {"message": "Base argument is missing in your command."}
     
     # Dispatch based on the detected program type.
     if program_type == ProgramType.RUN:
+        print(f"Starting optimization for base={base_arg}, seat={seat_arg}")  # Debug log
         key = f"{base_arg}-{seat_arg}"
         # Check if an optimization is already running.
         if key in running_optimizations and running_optimizations[key].returncode is None:
+            print(f"Optimization already running for {key}")  # Debug log
             return {"message": f"Optimization already running for base={base_arg}, seat={seat_arg}"}
-        task = asyncio.create_task(run_optimization_async(program_type, base_arg, seat_arg))
-        running_optimizations[key] = task
-        logs.append(f"Started optimization for base={base_arg}, seat={seat_arg}.")
+        try:
+            task = asyncio.create_task(run_optimization_async(program_type, base_arg, seat_arg))
+            running_optimizations[key] = task
+            print(f"Started optimization task for {key}")  # Debug log
+            logs.append(f"Started optimization for base={base_arg}, seat={seat_arg}.")
+        except Exception as e:
+            print(f"Error starting optimization: {str(e)}")  # Debug log
+            logs.append(f"Error starting optimization: {str(e)}")
 
     elif program_type == ProgramType.STATUS:
+        print(f"Checking status for base={base_arg}, seat={seat_arg}")  # Debug log
         return check_status(base_arg, seat_arg)
 
     elif program_type == ProgramType.ANALYZE:
+        print(f"Analyzing results for base={base_arg}, seat={seat_arg}")  # Debug log
         # Handle single base analysis
         result_file = f"testing/{base_arg}-{seat_arg}-opt.txt"
         try:
@@ -191,10 +209,12 @@ async def process_command(payload: dict):
             return {"logs": [f"Error analyzing results: {str(e)}"]}
 
     elif program_type == ProgramType.UPLOAD:
+        print(f"Uploading results for base={base_arg}, seat={seat_arg}")  # Debug log
         await upload_to_noc(base_arg, seat_arg)
         logs.append(f"Uploaded results for base={base_arg}, seat={seat_arg} to NOC.")
 
     else:
+        print(f"Unexpected program type: {program_type}")  # Debug log
         logs.append(f"Unexpected program type: {program_type}.")
 
     return {"logs": logs}
