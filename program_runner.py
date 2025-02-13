@@ -201,22 +201,30 @@ async def run_optimization_program(program_type: ProgramType, base_arg: str, sea
         script = "optanalyzer.py"
         action = "Analyzing optimization results"
     
-    # Use Python from the virtual environment
-    venv_python = os.path.expanduser("myenv/bin/python")
-    if not os.path.exists(venv_python):
-        # Try common alternative paths
-        alt_paths = [
-            "./myenv/bin/python",
-            "../myenv/bin/python",
-            os.path.expanduser("~/myenv/bin/python"),
-            os.path.join(os.getcwd(), "myenv/bin/python")
+    # Try to find Python in either virtual environment
+    venv_names = ['new_env', 'myenv']
+    venv_python = None
+    tried_paths = []
+    
+    for venv in venv_names:
+        possible_paths = [
+            os.path.expanduser(f"{venv}/bin/python"),
+            f"./{venv}/bin/python",
+            f"../{venv}/bin/python",
+            os.path.expanduser(f"~/{venv}/bin/python"),
+            os.path.join(os.getcwd(), f"{venv}/bin/python")
         ]
-        for path in alt_paths:
+        tried_paths.extend(possible_paths)
+        
+        for path in possible_paths:
             if os.path.exists(path):
                 venv_python = path
                 break
-        else:
-            raise FileNotFoundError(f"Could not find Python in virtual environment. Tried paths: {[venv_python] + alt_paths}")
+        if venv_python:
+            break
+    
+    if not venv_python:
+        raise FileNotFoundError(f"Could not find Python in virtual environments. Tried paths: {tried_paths}")
             
     command = f"{venv_python} {script} {base_arg} {seat_arg}"
     print(f"{action} with command: {command}")
