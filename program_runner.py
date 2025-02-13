@@ -2,11 +2,12 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Dict, Literal
 from pydantic import BaseModel, Field
-from pydantic_ai.agent import Agent, RunContext
+from openai import OpenAI
 import subprocess
 import os
 from datetime import datetime
 import asyncio
+import json
 
 class ProgramStatus(str, Enum):
     SUCCESS = "success"
@@ -14,35 +15,10 @@ class ProgramStatus(str, Enum):
     TIMEOUT = "timeout"
 
 class ProgramType(str, Enum):
-    RUN = "run"
-    ANALYZE = "analyze"
-    STATUS = "status"
-    UPLOAD = "upload"
-
-class IntentResult(BaseModel):
-    intent: ProgramType = Field(..., description="The user's intended action")
-    base_arg: Optional[str] = Field(None, description="Base argument if provided")
-    seat_arg: Optional[str] = Field(None, description="Seat argument if provided")
-    confidence: float = Field(..., description="Confidence in the intent classification", ge=0, le=1)
-    explanation: str = Field(..., description="Brief explanation of why this intent was chosen")
-
-intent_agent = Agent(
-    'gpt-3.5-turbo',
-    result_type=IntentResult,
-    system_prompt="""
-    Classify as RUN/ANALYZE/STATUS/UPLOAD. 
-    Only extract base and seat if they exactly match these values:
-    Valid bases: bur, dal, las, scf, opf, oak, sna
-    Valid seats: ca, fo, fa
-    Do not extract any other values as base or seat.
-
-    Format: intent, base=X, seat=Y
-    Example: "check status bur fa" → STATUS, base=bur, seat=fa
-    Example: "check status xyz fa" → STATUS, base=None, seat=fa
-    Example: "run optimization bur xy" → RUN, base=bur, seat=None
-    Note: The command "commands" should be handled separately before intent detection.
-    """
-)
+    RUN = "RUN"
+    ANALYZE = "ANALYZE"
+    STATUS = "STATUS"
+    UPLOAD = "UPLOAD"
 
 class ProgramResult(BaseModel):
     command: str = Field(..., description="The command that was executed")
@@ -112,42 +88,99 @@ def execute_program(command: str, working_dir: str = ".", timeout: int = 30) -> 
             exit_code=-1
         )
 
+class IntentResult(BaseModel):
+    intent: ProgramType = Field(..., description="The user's intended action")
+    base_arg: Optional[str] = Field(None, description="Base argument if provided")
+    seat_arg: Optional[str] = Field(None, description="Seat argument if provided")
+
+client = OpenAI()
+
+async def get_intent(user_input: str) -> IntentResult:
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": """
+    Extract the command type and arguments. The command type must be exactly one of: RUN, ANALYZE, STATUS, or UPLOAD.
+    Only extract base and seat if they exactly match these values:
+    Valid bases: BUR, DAL, LAS, SCF, OPF, OAK, SNA
+    Valid seats: CA, FO, FA
+    Do not extract any other values as base or seat.
+    Never extract partial matches or substrings.
+    If a word is not an exact match (ignoring case) to these values, do not extract it.
+    The word "all" should only be extracted as a base for RUN and STATUS commands.
+    
+    Example: "check status BUR FA" → STATUS, base=BUR, seat=FA
+    Example: "check status xyz FA" → STATUS, base=None, seat=FA
+    Example: "run optimization BUR xy" → RUN, base=BUR, seat=None
+    Example: "upload all FA to noc" → UPLOAD, base=None, seat=FA
+    Example: "upload noc FA" → UPLOAD, base=None, seat=FA
+    Example: "Hey man. Upload BUR FA for me" → UPLOAD, base=BUR, seat=FA
+    
+    Return JSON with these fields:
+    - intent: The command type (RUN/ANALYZE/STATUS/UPLOAD)
+    - base_arg: The base argument if valid, or null
+    - seat_arg: The seat argument if valid, or null
+    """},
+                {"role": "user", "content": f"Extract from: {user_input}"}
+            ],
+            response_format={"type": "json_object"}
+        )
+        
+        result = json.loads(response.choices[0].message.content)
+        return IntentResult(**result)
+    except:
+        return None
+
 async def determine_intent(user_input: str) -> tuple[ProgramType, Optional[str], Optional[str]]:
     """
     Uses the intent agent to determine intent and extract arguments.
     Returns (intent, base_arg, seat_arg)
     """
     # Pre-process common command patterns
-    input_lower = user_input.lower()
+    input_lower = user_input.lower()  # For command detection
     if input_lower in ['command', 'commands']:
         return None, None, None
+    
+    # Define valid bases and seats
+    VALID_BASES = ['bur', 'dal', 'las', 'scf', 'opf', 'oak', 'sna']
+    VALID_SEATS = ['ca', 'fo', 'fa']
+    
+    # Handle special "all" commands first
     if input_lower.startswith('check all'):
         # Extract seat from "check all {seat}"
         parts = input_lower.split()
         if len(parts) >= 3:
-            return ProgramType.STATUS, "all", parts[2]
+            return ProgramType.STATUS, "all", parts[2].upper()
+    elif input_lower.startswith('run all'):
+        # Extract seat from "run all {seat}"
+        parts = input_lower.split()
+        if len(parts) >= 3:
+            return ProgramType.RUN, "all", parts[2].upper()
 
-    result = await intent_agent.run(f"Extract from: {user_input}")
-    print(f"Intent: {result.data.intent} ({result.data.confidence:.2f})")
-    if result.data.base_arg or result.data.seat_arg:
-        print(f"Found arguments - Base: {result.data.base_arg}, Seat: {result.data.seat_arg}")
-   
-    # If confidence is not 100%, return special values to indicate clarification needed
-    if result.data.confidence < 1.0:
-        explanation = (
-            f"I'm not completely sure what you want to do (confidence: {result.data.confidence:.2f}). "
-            f"I think you want to {result.data.intent.lower()}"
-        )
-        if result.data.base_arg:
-            explanation += f" for base {result.data.base_arg}"
-        if result.data.seat_arg:
-            explanation += f" with seat {result.data.seat_arg}"
-        explanation += ". Please confirm or rephrase your command."
-        
-        # Return special values that api_server will recognize
-        return "CLARIFY", explanation, None
+    # Convert potential base/seat values to uppercase while preserving the rest
+    words = user_input.split()
+    processed_words = []
+    for word in words:
+        word_lower = word.lower()
+        if word_lower in VALID_BASES:
+            processed_words.append(word.upper())
+        elif word_lower in VALID_SEATS:
+            processed_words.append(word.upper())
+        else:
+            processed_words.append(word)
+    processed_input = ' '.join(processed_words)
 
-    return result.data.intent, result.data.base_arg, result.data.seat_arg
+    result = await get_intent(processed_input)
+    if result is None:
+        return "UNRECOGNIZED", None, None
+    
+    print(f"Intent: {result.intent}")
+    
+    if result.base_arg or result.seat_arg:
+        print(f"Found arguments - Base: {result.base_arg}, Seat: {result.seat_arg}")
+
+    return result.intent, result.base_arg, result.seat_arg
 
 async def run_optimization_program(program_type: ProgramType, base_arg: str, seat_arg: str, working_dir: str = ".", timeout: int = 30) -> None:
     """

@@ -2,30 +2,79 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Optimization Tool Interface</title>
+  <title>Advanced Optimization Control System</title>
   <style>
     body { 
-      font-family: Arial, sans-serif; 
-      background-color: #f4f4f4; 
+      font-family: 'Consolas', 'Monaco', monospace;
+      background-color: #1e1e1e;
+      color: #00ff00;
       margin: 0; 
       padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+    /* Matrix-style background */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: 
+        linear-gradient(rgba(0,0,0,0.97), rgba(0,0,0,0.97)),
+        repeating-linear-gradient(transparent, transparent 50px, rgba(0,255,0,0.1) 50px, rgba(0,255,0,0.1) 51px),
+        repeating-linear-gradient(90deg, transparent, transparent 50px, rgba(0,255,0,0.1) 50px, rgba(0,255,0,0.1) 51px);
+      z-index: -1;
+    }
+    /* Glowing grid lines */
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: 
+        radial-gradient(circle at 50% 50%, rgba(0,255,0,0.1) 0%, transparent 50%);
+      z-index: -1;
+      pointer-events: none;
     }
     .container {
       max-width: 800px;
       margin: auto;
-      background: #fff;
+      background: #2d2d2d;
+      background: rgba(45,45,45,0.95);
       padding: 20px;
       border-radius: 4px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      box-shadow: 0 0 20px rgba(0,255,0,0.2),
+                  0 0 40px rgba(0,255,0,0.1),
+                  inset 0 0 15px rgba(0,255,0,0.1);
+      backdrop-filter: blur(5px);
       display: flex;
       gap: 20px;
+      position: relative;
     }
-    .input-section {
-      flex: 1;
+    /* Add subtle scan lines */
+    .container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,255,0,0.03) 2px,
+        rgba(0,255,0,0.03) 4px
+      );
+      pointer-events: none;
     }
     .history-section {
       flex: 1;
-      border-left: 1px solid #ddd;
+      border-left: 1px solid #00ff00;
       padding-left: 20px;
     }
     textarea {
@@ -33,27 +82,66 @@
       height: 100px;
       padding: 10px;
       margin-bottom: 10px;
-      border: 1px solid #ddd;
+      border: 1px solid #00ff00;
       border-radius: 4px;
       font-size: 16px;
+      background-color: #1e1e1e;
+      color: #00ff00;
+      font-family: 'Consolas', 'Monaco', monospace;
+      box-shadow: 0 0 10px rgba(0,255,0,0.1),
+                  inset 0 0 5px rgba(0,255,0,0.1);
+      transition: all 0.3s ease;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #00ff00;
+      box-shadow: 0 0 15px rgba(0,255,0,0.2),
+                  inset 0 0 10px rgba(0,255,0,0.1);
     }
     button {
       font-size: 16px;
       padding: 10px 20px;
-      background-color: #007BFF;
-      color: white;
-      border: none;
+      background-color: #1e1e1e;
+      color: #00ff00;
+      border: 1px solid #00ff00;
       border-radius: 4px;
       cursor: pointer;
+      font-family: 'Consolas', 'Monaco', monospace;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    button::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(
+        rgba(0,255,0,0.1),
+        transparent,
+        rgba(0,255,0,0.1)
+      );
+      transform: rotate(45deg);
+      transition: all 0.3s ease;
+      opacity: 0;
+    }
+    button:hover::after {
+      opacity: 1;
     }
     button:hover {
-      background-color: #0056b3;
+      background-color: #00ff00;
+      color: #1e1e1e;
+      box-shadow: 0 0 20px rgba(0,255,0,0.3);
     }
     #output {
       margin-top: 20px;
-      background-color: #f8f8f8;
+      background-color: #1e1e1e;
       padding: 10px;
-      border: 1px solid #ccc;
+      border: 1px solid #00ff00;
       border-radius: 4px;
       white-space: pre-wrap;
       max-height: 300px;
@@ -63,41 +151,63 @@
       max-height: 500px;
       overflow-y: auto;
       padding: 10px;
-      background-color: #f8f8f8;
+      background-color: #1e1e1e;
       border-radius: 4px;
     }
     .chat-entry {
       margin-bottom: 15px;
       padding-bottom: 15px;
-      border-bottom: 1px solid #ddd;
+      border-bottom: 1px solid #004400;
     }
     .command {
-      color: #007BFF;
+      color: #00ff00;
       font-weight: bold;
     }
     .response {
       margin-top: 5px;
-      color: #333;
+      color: #00cc00;
     }
     .timestamp {
       font-size: 0.8em;
-      color: #666;
+      color: #008800;
       margin-bottom: 5px;
+    }
+    h1, h2 {
+      color: #00ff00;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      border-bottom: 2px solid #00ff00;
+      padding-bottom: 10px;
+    }
+    em {
+      color: #00cc00;
+      font-style: normal;
+      border-bottom: 1px dotted #00ff00;
+    }
+    ::-webkit-scrollbar {
+      width: 10px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1e1e1e;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #00ff00;
+      border-radius: 5px;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="input-section">
-      <h1>Optimization Tool</h1>
-      <p>Enter a command (e.g., <em>run optimization with base bur seat fa</em> or <em>commands</em>):</p>
+      <h1>Advanced Optimization Control System</h1>
+      <p>Enter a command (e.g., <em>run optimization with base BUR seat FA</em> or <em>commands</em>):</p>
       <textarea id="commandInput" placeholder="Enter Command Here"></textarea>
       <br />
-      <button onclick="sendCommand()">Send Command</button>
+      <button onclick="sendCommand()">Execute Command</button>
       <div id="output"></div>
     </div>
     <div class="history-section">
-      <h2>Chat History</h2>
+      <h2>Command Log</h2>
       <div id="chatHistory"></div>
     </div>
   </div>

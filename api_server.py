@@ -24,19 +24,21 @@ You can interact with this tool by sending commands with the following formats:
 
 1. Run Optimization:
    - Command: "run optimization with base <base> seat <seat>"
-   - Example: "run optimization with base bur seat fa"
+   - Example: "run optimization with base BUR seat FA"
+   - You can also use "run all <seat>" to run optimizations for all bases
 
 2. Analyze Results:
    - Command: "analyze results for base <base> seat <seat>"
-   - Example: "analyze results for base bur seat fa"
+   - Example: "analyze results for base BUR seat FA"
 
 3. Check Status:
-   - Command: "check status <base> <seat>" or "check all <seat>"
-   - Example: "check status bur fa" or "check all fa"
+   - Command: "check status <base> <seat>"
+   - Example: "check status BUR FA"
+   - You can also use "check all <seat>" to check status for all bases
 
 4. Upload to NOC:
-   - Command: "upload <base> <seat> to noc" or "upload all <seat> to noc"
-   - Example: "upload bur fa to noc" or "upload all fa to noc"
+   - Command: "upload <base> <seat> to noc"
+   - Example: "upload BUR FA to noc"
 
 Simply type "help" to receive these instructions.
 """
@@ -65,6 +67,11 @@ async def process_command(payload: dict):
 
     # Use your existing AI agent to determine the intent and extract arguments.
     program_type, base_arg, seat_arg = await determine_intent(command)
+    program_type, base_arg, seat_arg = "ANALYZE", 'SNA', 'CA'
+    
+    # Handle unrecognized commands
+    if program_type == "UNRECOGNIZED":
+        return {"message": "I'm not sure what you want to do. Please try rephrasing your command or type 'commands' to see available options."}
     
     # Handle clarification requests
     if program_type == "CLARIFY":
@@ -82,9 +89,13 @@ async def process_command(payload: dict):
     
     # If "all" bases are requested, process for each base.
     if base_arg == "all":
+        # Only allow "all" with RUN and STATUS commands
+        if program_type not in [ProgramType.RUN, ProgramType.STATUS]:
+            return {"message": f"The 'all' option is only available for 'run' and 'check' commands, not for {program_type.value}"}
+        
         if program_type == ProgramType.STATUS:
             all_statuses = []
-            for base in ["bur", "dal", "las", "scf", "opf", "oak", "sna"]:
+            for base in ["BUR", "DAL", "LAS", "SCF", "OPF", "OAK", "SNA"]:
                 try:
                     # Check if optimization is running
                     key = f"{base}-{seat_arg}"
@@ -118,7 +129,7 @@ async def process_command(payload: dict):
             return {"all_statuses": all_statuses}
         elif program_type == ProgramType.RUN:
             run_statuses = []
-            for base in ["bur", "dal", "las", "scf", "opf", "oak", "sna"]:
+            for base in ["BUR", "DAL", "LAS", "SCF", "OPF", "OAK", "SNA"]:
                 try:
                     key = f"{base}-{seat_arg}"
                     # Check if optimization is already running
@@ -148,51 +159,6 @@ async def process_command(payload: dict):
                         "error": str(e)
                     })
             return {"all_statuses": run_statuses}
-        elif program_type == ProgramType.ANALYZE:
-            analyze_statuses = []
-            for base in ["bur", "dal", "las", "scf", "opf", "oak", "sna"]:
-                try:
-                    result_file = f"testing/{base}-{seat_arg}-opt.txt"
-                    if os.path.exists(result_file):
-                        with open(result_file, "r") as f:
-                            analyze_output = f.read().strip()
-                    else:
-                        analyze_output = f"No optimization results found for {base}-{seat_arg}"
-                    
-                    analyze_statuses.append({
-                        "base": base,
-                        "seat": seat_arg,
-                        "status": "Analysis complete",
-                        "status_info": analyze_output,
-                        "error": None
-                    })
-                except Exception as e:
-                    analyze_statuses.append({
-                        "base": base,
-                        "seat": seat_arg,
-                        "status": "Analysis failed",
-                        "error": str(e)
-                    })
-            return {"all_statuses": analyze_statuses}
-        elif program_type == ProgramType.UPLOAD:
-            upload_statuses = []
-            for base in ["bur", "dal", "las", "scf", "opf", "oak", "sna"]:
-                try:
-                    await upload_to_noc(base, seat_arg)
-                    upload_statuses.append({
-                        "base": base,
-                        "seat": seat_arg,
-                        "status": "Upload complete",
-                        "error": None
-                    })
-                except Exception as e:
-                    upload_statuses.append({
-                        "base": base,
-                        "seat": seat_arg,
-                        "status": "Upload failed",
-                        "error": str(e)
-                    })
-            return {"all_statuses": upload_statuses}
     
     # Ensure a base argument was extracted.
     if not base_arg:
@@ -211,49 +177,22 @@ async def process_command(payload: dict):
     elif program_type == ProgramType.STATUS:
         return check_status(base_arg, seat_arg)
 
+    elif program_type == ProgramType.ANALYZE:
+        # Handle single base analysis
+        result_file = f"testing/{base_arg}-{seat_arg}-opt.txt"
+        try:
+            if os.path.exists(result_file):
+                with open(result_file, "r") as f:
+                    analyze_output = f.read().strip()
+            else:
+                analyze_output = f"No optimization results found for {base_arg}-{seat_arg}"
+            return {"logs": [analyze_output]}
+        except Exception as e:
+            return {"logs": [f"Error analyzing results: {str(e)}"]}
+
     elif program_type == ProgramType.UPLOAD:
         await upload_to_noc(base_arg, seat_arg)
         logs.append(f"Uploaded results for base={base_arg}, seat={seat_arg} to NOC.")
-
-    elif program_type == ProgramType.ANALYZE:
-        if base_arg == "all":
-            analyze_statuses = []
-            for base in ["bur", "dal", "las", "scf", "opf", "oak", "sna"]:
-                try:
-                    result_file = f"testing/{base}-{seat_arg}-opt.txt"
-                    if os.path.exists(result_file):
-                        with open(result_file, "r") as f:
-                            analyze_output = f.read().strip()
-                    else:
-                        analyze_output = f"No optimization results found for {base}-{seat_arg}"
-                    
-                    analyze_statuses.append({
-                        "base": base,
-                        "seat": seat_arg,
-                        "status": "Analysis complete",
-                        "status_info": analyze_output,
-                        "error": None
-                    })
-                except Exception as e:
-                    analyze_statuses.append({
-                        "base": base,
-                        "seat": seat_arg,
-                        "status": "Analysis failed",
-                        "error": str(e)
-                    })
-            return {"all_statuses": analyze_statuses}
-        else:
-            # Handle single base analysis
-            result_file = f"testing/{base_arg}-{seat_arg}-opt.txt"
-            try:
-                if os.path.exists(result_file):
-                    with open(result_file, "r") as f:
-                        analyze_output = f.read().strip()
-                else:
-                    analyze_output = f"No optimization results found for {base_arg}-{seat_arg}"
-                return {"logs": [analyze_output]}
-            except Exception as e:
-                return {"logs": [f"Error analyzing results: {str(e)}"]}
 
     else:
         logs.append(f"Unexpected program type: {program_type}.")
