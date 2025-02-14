@@ -12,7 +12,12 @@ d2 = '2025-04-02'
 
 od = pd.read_csv(f'tdy_opt_dat_fin_{seat}.csv')
 prefs = pd.read_csv(f'bid_dat_test_{seat}.csv')
-prefs = prefs[((prefs['user_base']==base)&(prefs['user_crew_type']==seat)&(prefs['user_name'].isin(od['name'].values)))].sort_values(by='user_seniority', ascending=False)
+
+# Map seat abbreviation to its full crew role name
+seat_full_mapping = {"CA": "captain", "FO": "first_officer", "FA": "flight_attendant"}
+seat_full = seat_full_mapping.get(seat, seat)
+
+prefs = prefs[((prefs['user_base']==base)&(prefs['user_crew_type']==seat_full)&(prefs['user_name'].isin(od['name'].values)))].sort_values(by='user_seniority', ascending=False)
 
 names = prefs['user_name'].values
 emails = prefs['user_email'].values
