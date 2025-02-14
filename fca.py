@@ -210,14 +210,15 @@ def fca(base, seat, d1, d2, seconds):
     print(dalpair[['d1','d2','idx']])
     #exit(0)
 
-    pto = []
-    for row in prefs['pto_days'].values:
-        tmpl = []
-        for x in eval(row):
-            tmpl.append(x[:10])
-        pto.append(tmpl)
-    prefs['pto'] = pto
-    pto = prefs['pto'].to_dict()
+    # pto = []
+    # for row in prefs['pto_days'].values:
+    #     tmpl = []
+    #     for x in eval(row):
+    #         tmpl.append(x[:10])
+    #     pto.append(tmpl)
+    # prefs['pto'] = pto
+    # pto = prefs['pto'].to_dict()
+
 
     # if seat == 'captain':
     #     if base == 'DAL':
@@ -266,7 +267,7 @@ def fca(base, seat, d1, d2, seconds):
         pres = cp.Variable(n_c, integer=True)
     if len(c_idxs) > 0:
         pcha = cp.Variable(n_c, integer=True)
-    ppto = cp.Variable(n_c, integer=True)
+    # ppto = cp.Variable(n_c, integer=True)
     chnk = cp.Variable(n_c, integer=True)
     cdos = cp.Variable(n_c, integer=True)
     #debu = cp.Variable(n_c, integer=True)
@@ -290,40 +291,70 @@ def fca(base, seat, d1, d2, seconds):
         constraints += [cp.sum(cp.multiply(xp[c], pdays)) >= min_days[c]]
 
     #no more than 1 duty per day
-    for c in range(n_c):
-        for d in dtes:
-            arr = np.array(dtemap[d])
-            if len(arr) == 0:
-                continue
-            constraints += [cp.sum(xp[c,arr]) <= 1]
+    for d in dtes:
+        arr = np.array(dtemap[d])
+        if len(arr) > 0:
+            constraints += [cp.sum(xp[:, arr], axis=1) <= 1]
 
-    #chunks and cdo calculation
+    # Pre-compute numpy arrays for each date once
+    dtemap_np = {d: np.array(dtemap[d]) for d in dtes}
+
+    # For each crew member
     for c in range(n_c):
-        chunks = 0
-        cdo = 0
-        mon = []
-        for ind in range(len(dtes)):
-            arr1 = np.array(dtemap[dtes[ind]])
-            if len(arr1) == 0:
-                p1 = 0
+        # Calculate day sums once - this creates a vector of work assignments per day
+        day_sums = []
+        for d in dtes:
+            arr = dtemap_np[d]
+            if len(arr) > 0:
+                day_sums.append(cp.sum(xp[c, arr]))
             else:
-                p1 = cp.sum(xp[c,arr1])
-            if ind == len(dtes) - 1:
-                p2 = 0
-            else:
-                arr2 = np.array(dtemap[dtes[ind+1]])
-                if len(arr2) == 0:
-                    p2 = 0
-                else:
-                    p2 = cp.sum(xp[c,arr2])
-            m12 = cp.maximum(p1, p2)
-            chunks += m12 - p2
-            cdo += -1*(m12-1)
+                day_sums.append(0)
+            
+        # Convert lists to CVXPY expressions we can operate on
+        day_sums = cp.vstack(day_sums)
+        
+        # Calculate work pattern metrics more efficiently
+        # 1. Chunks: count transitions from work to non-work
+        chunks = cp.sum(cp.pos(day_sums[:-1] - day_sums[1:]))
+        
+        # 2. CDOs: count consecutive pairs of non-work days
+        # Instead of using maximum, use a simpler formulation
+        non_work_pairs = (1 - day_sums[:-1]) + (1 - day_sums[1:])
+        cdo = cp.sum(cp.minimum(non_work_pairs, 2)) / 2  # Divide by 2 since we're counting pairs
+        
+        # Add constraints
         if is_tdy[c]:
             constraints += [chunks <= 1]
         constraints += [chnk[c] >= chunks]
         constraints += [cdos[c] <= cdo]
+    
 
+    #chunks and cdo calculation
+    # for c in range(n_c):
+    #     chunks = 0
+    #     cdo = 0
+    #     mon = []
+    #     for ind in range(len(dtes)):
+    #         arr1 = np.array(dtemap[dtes[ind]])
+    #         if len(arr1) == 0:
+    #             p1 = 0
+    #         else:
+    #             p1 = cp.sum(xp[c,arr1])
+    #         if ind == len(dtes) - 1:
+    #             p2 = 0
+    #         else:
+    #             arr2 = np.array(dtemap[dtes[ind+1]])
+    #             if len(arr2) == 0:
+    #                 p2 = 0
+    #             else:
+    #                 p2 = cp.sum(xp[c,arr2])
+    #         m12 = cp.maximum(p1, p2)
+    #         chunks += m12 - p2
+    #         cdo += -1*(m12-1)
+    #     if is_tdy[c]:
+    #         constraints += [chunks <= 1]
+    #     constraints += [chnk[c] >= chunks]
+    #     constraints += [cdos[c] <= cdo]
     # for c in range(n_c):
     #     chunks = 0
     #     cdo = 0
@@ -356,48 +387,73 @@ def fca(base, seat, d1, d2, seconds):
     #         num2 = 10
     #     constraints += [chunks <= num]
     #     constraints += [cdo >= num2]
-
+    # Pre-compute day sums for each crew member
     for c in range(n_c):
-        maxlen = 7
-        #minlen = 2
-        #mon = []
-        for ind in range(len(dtes)-maxlen):
-            p = 0
-            for ind2 in range(ind,ind+maxlen+1):
-                arr = np.array(dtemap[dtes[ind2]])
-                if len(arr) == 0:
-                    pass
-                else:
-                    p += cp.sum(xp[c,arr])
-            constraints += [p <= maxlen]
+        # Calculate day sums once
+        day_sums = []
+        for d in dtes:
+            arr = dtemap_np[d]
+            if len(arr) > 0:
+                day_sums.append(cp.sum(xp[c, arr]))
+            else:
+                day_sums.append(0)
+        day_sums = cp.vstack(day_sums)
+        
+        # Add the three specific window constraints:
+        
+        # 1. Max 7 days of work in any 8 day period
+        for i in range(len(dtes) - 8):
+            constraints += [cp.sum(day_sums[i:i+8]) <= 7]
+        
+        # 2. Max 10 days of work in any 14 day period
+        for i in range(len(dtes) - 14):
+            constraints += [cp.sum(day_sums[i:i+14]) <= 10]
+        
+        # 3. Max 8 days of work in any 10 day period
+        for i in range(len(dtes) - 10):
+            constraints += [cp.sum(day_sums[i:i+10]) <= 8]
 
-    for c in range(n_c):
-        maxlen = 10
-        #minlen = 2
-        #mon = []
-        for ind in range(len(dtes)-maxlen-4):
-            p = 0
-            for ind2 in range(ind,ind+maxlen+4):
-                arr = np.array(dtemap[dtes[ind2]])
-                if len(arr) == 0:
-                    pass
-                else:
-                    p += cp.sum(xp[c,arr])
-            constraints += [p <= maxlen]
+    # for c in range(n_c):
+    #     maxlen = 7
+    #     #minlen = 2
+    #     #mon = []
+    #     for ind in range(len(dtes)-maxlen):
+    #         p = 0
+    #         for ind2 in range(ind,ind+maxlen+1):
+    #             arr = np.array(dtemap[dtes[ind2]])
+    #             if len(arr) == 0:
+    #                 pass
+    #             else:
+    #                 p += cp.sum(xp[c,arr])
+    #         constraints += [p <= maxlen]
 
-    for c in range(n_c):
-        maxlen = 8
-        #minlen = 2
-        #mon = []
-        for ind in range(len(dtes)-maxlen-2):
-            p = 0
-            for ind2 in range(ind,ind+maxlen+2):
-                arr = np.array(dtemap[dtes[ind2]])
-                if len(arr) == 0:
-                    pass
-                else:
-                    p += cp.sum(xp[c,arr])
-            constraints += [p <= maxlen]
+    # for c in range(n_c):
+    #     maxlen = 10
+    #     #minlen = 2
+    #     #mon = []
+    #     for ind in range(len(dtes)-maxlen-4):
+    #         p = 0
+    #         for ind2 in range(ind,ind+maxlen+4):
+    #             arr = np.array(dtemap[dtes[ind2]])
+    #             if len(arr) == 0:
+    #                 pass
+    #             else:
+    #                 p += cp.sum(xp[c,arr])
+    #         constraints += [p <= maxlen]
+
+    # for c in range(n_c):
+    #     maxlen = 8
+    #     #minlen = 2
+    #     #mon = []
+    #     for ind in range(len(dtes)-maxlen-2):
+    #         p = 0
+    #         for ind2 in range(ind,ind+maxlen+2):
+    #             arr = np.array(dtemap[dtes[ind2]])
+    #             if len(arr) == 0:
+    #                 pass
+    #             else:
+    #                 p += cp.sum(xp[c,arr])
+    #         constraints += [p <= maxlen]
 
     #must be at least 2 consecutive days off
     # for c in range(n_c):
@@ -409,10 +465,10 @@ def fca(base, seat, d1, d2, seconds):
     #         p2 = cp.sum(xp[c,arr2])
     #         p3 = cp.sum(xp[c,arr3])
     #         constraints += [1-p1 + p2 + 1-p3 >= 0]        
-            # p3 = cp.sum(xp[c,arr2])
-            # p1 = cp.maximum(cp.sum(xp[c,arr1]), p3)
-            # p2 = cp.maximum(p3, cp.sum(xp[c,arr3]))
-            # constraints += [p1 + p2 - p3 <= 1]
+    #         # p3 = cp.sum(xp[c,arr2])
+    #         # p1 = cp.maximum(cp.sum(xp[c,arr1]), p3)
+    #         # p2 = cp.maximum(p3, cp.sum(xp[c,arr3]))
+    #         # constraints += [p1 + p2 - p3 <= 1]
 
     #days off + pto
     # for c in range(n_c):
@@ -430,20 +486,20 @@ def fca(base, seat, d1, d2, seconds):
             constraints += [po[c] == max_days[c] - cp.sum(xp[c,arr])]
 
     #pto req
-    for c, v in pto.items():
-        if len(v) == 0:
-            constraints += [ppto[c] == max_days[c]]
-            continue
-        idx_lst = []
-        for v2 in v:
-            if v2 not in dtes:
-                continue
-            idx_lst.extend(dtemap[v2])
-        pto_count = np.array(idx_lst)
-        if len(pto_count) == 0:
-            constraints += [ppto[c] == max_days[c]]
-            continue
-        constraints += [ppto[c] == max_days[c] - cp.sum(xp[c, pto_count])]
+    # for c, v in pto.items():
+    #     if len(v) == 0:
+    #         constraints += [ppto[c] == max_days[c]]
+    #         continue
+    #     idx_lst = []
+    #     for v2 in v:
+    #         if v2 not in dtes:
+    #             continue
+    #         idx_lst.extend(dtemap[v2])
+    #     pto_count = np.array(idx_lst)
+    #     if len(pto_count) == 0:
+    #         constraints += [ppto[c] == max_days[c]]
+    #         continue
+    #     constraints += [ppto[c] == max_days[c] - cp.sum(xp[c, pto_count])]
 
     #overnight
     for c in range(n_c):
@@ -514,35 +570,24 @@ def fca(base, seat, d1, d2, seconds):
     print(constr_rest)
     print(dalpair[dalpair['idx'].isin(['60699','60712'])])
     print([i for i in constr_rest if 62 in i])
-    for c in range(n_c):
-        for idxs in constr_rest:
-            constraints += [cp.sum(xp[c, np.array(idxs)]) <= 1]
+    rest_constraints = []
+    for idxs in constr_rest:
+        idxs_arr = np.array(idxs)
+        constraints += [cp.sum(xp[:, idxs_arr], axis=1) <= 1]
 
     #vacation block
-    l = []
-    [l.extend(i) for i in list(vacations.values())]
-    print(pd.DataFrame(l).value_counts())
-    # vacations = {k:[i for i in v if i ] for k,v in vacations.items()}
-    #vacations[5] = [i.strftime('%Y-%m-%d') for i in pd.date_range('2024-12-13','2024-12-31')]
-    for k,v in vacations.items():
-        print(v)
-        if len(v) == 0:
+    vacation_constraints = []
+    for k, v in vacations.items():
+        if not v:
             continue
-        idx_lst = []
-        for v2 in v:
-            if v2 not in dtemap:
-                continue
-            idx_lst.extend(dtemap[v2])
-        vac_dt = np.array(idx_lst)
-        if len(vac_dt) == 0:
-            continue
-        #print(k, vac_dt)
-        constraints += [cp.sum(xp[k, vac_dt]) == 0]
-        # if is_tdy[k]:
-        #     for d in ['2025-01-07','2025-01-12','2025-01-13','2025-01-14','2025-01-16','2025-01-17','2025-01-18','2025-01-31']:
-        #         constraints += [cp.sum(xp[k, dtemap[d]]) == 0]
+        indices = [idx for date in v if date in dtemap for idx in dtemap[date]]
+        if indices:
+            vacation_constraints.append((k, np.array(indices)))
 
-    # exit(0)
+    for k, indices in vacation_constraints:
+        constraints += [cp.sum(xp[k, indices]) == 0]
+
+    #exit(0)
     #special qual
     # if seat == 'captain':
     #     if base in []:
@@ -557,7 +602,7 @@ def fca(base, seat, d1, d2, seconds):
             constraints += [overage <= 8]
             continue
         elif base == 'SCF' or base == 'SNA':
-            constraints += [overage <= 6]
+            constraints += [overage <= 8]
             continue
         constraints += [overage <= 6] 
 
@@ -571,9 +616,9 @@ def fca(base, seat, d1, d2, seconds):
         char_val = cp.sum(pcha)
     else:
         char_val = 0
-    objective = cp.Maximize(.3*cp.sum(cdos) - .3*cp.sum(chnk) + 3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + .2*cp.sum(cp.multiply(ptime,sen)) + 4*cp.sum(ppto) + 1.5*res_val + char_val)
+    objective = cp.Maximize(.3*cp.sum(cdos) - .3*cp.sum(chnk) + 3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + .2*cp.sum(cp.multiply(ptime,sen)) + 1.5*res_val + char_val)
     #objective = cp.Maximize(3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + .2*cp.sum(cp.multiply(ptime,sen)) + 4*cp.sum(ppto) + 1.5*res_val + char_val)
-    #objective = cp.Maximize(3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + .3*cp.sum(cp.multiply(ptime,sen)) + 4*cp.sum(ppto) + 1.5*res_val + char_val
+    #objective = cp.Maximize(3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + .3*cp.sum(cp.multiply(ptime,sen)) + 4*cp.sum(ppto) + 1.5*res_val + char_val)
     #objective = cp.Maximize(1.5*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + cp.sum(cp.multiply(ptime,sen)) + 3*cp.sum(ppto) + 1.1*res_val + char_val)
 
 
@@ -583,7 +628,11 @@ def fca(base, seat, d1, d2, seconds):
 
     prob = cp.Problem(objective, constraints)
     #.solve(verbose=True)
-    prob.solve(solver='CBC', numberThreads=24, verbose=True, maximumSeconds = seconds)
+    prob.solve(solver='CBC', 
+              numberThreads=24, 
+              verbose=True, 
+              maximumSeconds=seconds,
+              allowableGap=0.01)  # Accept solutions within 1% of optimal
     #prob.solve(solver=cp.SCIPY, scipy_options={"method": "highs"}, verbose=True)
     # prob.solve(solver='CBC', numberThreads=2, verbose=True, maximumSeconds=60)
     # prob.solve(solver=cp.SCIPY, scipy_options={'verbose': True})
@@ -599,7 +648,7 @@ def fca(base, seat, d1, d2, seconds):
     # satd['chnk'] = chnk.value
     satd['pover'] = pover.value
     satd['ptime'] = ptime.value
-    satd['ppto'] = ppto.value
+    # satd['ppto'] = ppto.value
     if len(r_idxs) > 0:
         satd['res'] = pres.value
     if len(c_idxs) > 0:

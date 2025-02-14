@@ -12,7 +12,7 @@ seat = argv[2].upper()
 
 if seat == 'FA':
 
-    fca(base, seat, '2025-03-01', '2025-03-31', 300)
+    fca(base, seat, '2025-03-01', '2025-03-31', 500)
     analyze_run(base, seat)
 else:
     with open(f"testing/{base}-{seat}-opt.txt", "w") as f:
