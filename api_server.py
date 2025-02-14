@@ -233,12 +233,16 @@ def check_status(base_arg: str, seat_arg: str) -> dict:
     # Check if optimization is currently running
     key = f"{base_arg}-{seat_arg}"
     if key in running_optimizations:
-        process = running_optimizations[key]
-        if process.returncode is None:
+        task = running_optimizations[key]
+        if not task.done():
             logs.append("Status: Optimization is currently running")
         else:
-            logs.append(f"Status: Optimization completed with return code {process.returncode}")
-            # Cleanup completed process
+            try:
+                result = task.result()
+                logs.append("Status: Optimization completed successfully")
+            except Exception as e:
+                logs.append(f"Status: Optimization failed with error: {str(e)}")
+            # Cleanup completed task
             del running_optimizations[key]
     
     # Check for status file regardless of running status
@@ -249,12 +253,6 @@ def check_status(base_arg: str, seat_arg: str) -> dict:
             status = f.read()
         logs.append("\nFile Status:")
         logs.append(status)
-        
-        timestamp = os.path.getmtime(status_file)
-        modified_time = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
-        logs.append(f"\nLast Updated: {modified_time}")
-    else:
-        logs.append(f"\nNo status file found: {status_file}")
     
     return {"logs": logs}
 
