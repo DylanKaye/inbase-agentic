@@ -206,6 +206,37 @@ def fca(base, seat, d1, d2, seconds):
         vaca_pto.append(tmpl)
     prefs['vacation_tr'] = vaca_pto
     vacations = prefs['vacation_tr'].to_dict()
+
+    x = dalpair[dalpair['base_start']==base]['d1'].value_counts()
+    y = dalpair[(dalpair['base_start']==base)&(dalpair['mult']==2)]['d2'].value_counts() 
+    z = (x + (y + x*0).fillna(0)).to_dict()
+    
+    # Analyze vacation days totals
+    vacation_counts = {}
+    for crew_idx, dates in vacations.items():
+        for date in dates:
+            if date not in vacation_counts:
+                vacation_counts[date] = 0
+            vacation_counts[date] += 1
+    
+    # Print vacation day totals and available work days in chronological order
+    print("\nDaily Crew Availability Analysis:")
+    print("Date\t\tWork Days\tVacations\tAvailable Crew")
+    print("-" * 60)
+    all_dates = sorted(set(list(z.keys()) + list(vacation_counts.keys())))
+    for date in all_dates:
+        work_days = z.get(date, 0)
+        vac_days = vacation_counts.get(date, 0)
+        available = work_days - vac_days
+        print(f"{date}\t{work_days}\t\t{vac_days}\t\t{available}")
+    
+    # Print totals
+    total_work = sum(z.values())
+    total_vac = sum(vacation_counts.values())
+    print("\nTotals:")
+    print(f"Total work days available: {total_work}")
+    print(f"Total vacation days: {total_vac}")
+    print(f"Net available days: {total_work - total_vac}")
     
     print(dalpair[['d1','d2','idx']])
     #exit(0)

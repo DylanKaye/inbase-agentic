@@ -34,8 +34,8 @@ for base, ddict in resfa.items():
             continue
         if base == 'BUR' and day > '2025-03-12':
             continue
-        # if base == 'OPF' and day  == '2025-03-31':
-        #     continue
+        if base == 'DAL' and day  == '2025-03-29':
+            continue
         for n in range(ddict[dtes_dt[ind].dayofweek]):
             res_list.append(ret_row(day, base, f'R{rid}'))
             rid += 1
