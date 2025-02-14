@@ -61,6 +61,7 @@ crew_id_map_e ['johanna.tocavargas@jsx.com'] = 10358
 crew_id_map_e ['daja.bailey@jsx.com'] = 10357
 crew_id_map_e ['shadyra.chambers@jsx.com'] = 10356
 crew_id_map_e ['brittany.massey@jsx.com'] = 10355
+crew_id_map_e ['noah.masier@jsx.com'] = 10305
 
 # with open('pair_map_sept_4.json','r') as fp:
 #     pair_map = json.load(fp)

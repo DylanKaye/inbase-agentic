@@ -14,7 +14,7 @@ selpairs = pd.read_csv(f'pairing_file_mar.csv')
 bdt = pd.read_csv('tdy_opt_dat_fin_FO.csv')
 bdt[bdt['non tdy days worked']!=0].to_csv('tdy_opt_dat_fin_FO.csv',index=False)
 
-#selpairs = selpairs[~selpairs['idx'].isin([64948, 64952, 64953, 64852, 64853, 64854, 64855, 64856])].reset_index(drop=True)
+selpairs = selpairs[~selpairs['idx'].isin([67386, 67387, 67388, 67389, 67390, 67391])].reset_index(drop=True)
 
 spg = selpairs.groupby('base_start')['mult'].sum()
 print([spg['BUR'], spg['DAL'], 0, spg['LAS'], 0, spg['OAK'], spg['SCF'], spg['SNA']])
