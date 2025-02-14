@@ -17,7 +17,7 @@ prefs = pd.read_csv(f'bid_dat_test_{seat}.csv')
 seat_full_mapping = {"CA": "captain", "FO": "first_officer", "FA": "flight_attendant"}
 seat_full = seat_full_mapping.get(seat, seat)
 
-prefs = prefs[((prefs['user_base']==base)&(prefs['user_crew_type']==seat_full)&(prefs['user_name'].isin(od['name'].values)))].sort_values(by='user_seniority', ascending=False)
+prefs = prefs[((prefs['user_base']==base)&(prefs['user_role']==seat_full)&(prefs['user_name'].isin(od['name'].values)))].sort_values(by='user_seniority', ascending=False)
 
 names = prefs['user_name'].values
 emails = prefs['user_email'].values
