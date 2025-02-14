@@ -207,6 +207,9 @@ def fca(base, seat, d1, d2, seconds):
     prefs['vacation_tr'] = vaca_pto
     vacations = prefs['vacation_tr'].to_dict()
 
+    n_c = len(prefs)
+    n_d = len(dtes)
+
     x = dalpair[dalpair['base_start']==base]['d1'].value_counts()
     y = dalpair[(dalpair['base_start']==base)&(dalpair['mult']==2)]['d2'].value_counts() 
     z = (x + (y + x*0).fillna(0)).to_dict()
@@ -219,24 +222,26 @@ def fca(base, seat, d1, d2, seconds):
                 vacation_counts[date] = 0
             vacation_counts[date] += 1
     
-    # Print vacation day totals and available work days in chronological order
-    print("\nDaily Crew Availability Analysis:")
-    print("Date\t\tWork Days\tVacations\tAvailable Crew")
-    print("-" * 60)
+    # Print analysis comparing work days to available crew
+    print("\nDaily Work Assignment Analysis:")
+    print("Date\t\tWork Days\tCrew on Vac\tAvailable Crew\tDifference")
+    print("-" * 80)
     all_dates = sorted(set(list(z.keys()) + list(vacation_counts.keys())))
     for date in all_dates:
         work_days = z.get(date, 0)
-        vac_days = vacation_counts.get(date, 0)
-        available = work_days - vac_days
-        print(f"{date}\t{work_days}\t\t{vac_days}\t\t{available}")
+        crew_on_vac = vacation_counts.get(date, 0)
+        available_crew = n_c - crew_on_vac
+        difference = available_crew - work_days
+        print(f"{date}\t{work_days}\t\t{crew_on_vac}\t\t{available_crew}\t\t{difference}")
     
     # Print totals
     total_work = sum(z.values())
-    total_vac = sum(vacation_counts.values())
-    print("\nTotals:")
-    print(f"Total work days available: {total_work}")
-    print(f"Total vacation days: {total_vac}")
-    print(f"Net available days: {total_work - total_vac}")
+    total_vac_days = sum(vacation_counts.values())
+    print("\nSummary:")
+    print(f"Total crew members (n_c): {n_c}")
+    print(f"Total work days to assign: {total_work}")
+    print(f"Total vacation days: {total_vac_days}")
+    print(f"Average daily crew availability: {n_c - (total_vac_days/len(all_dates)):.1f}")
     
     print(dalpair[['d1','d2','idx']])
     #exit(0)
@@ -272,8 +277,6 @@ def fca(base, seat, d1, d2, seconds):
         rowl.append(int(row1) >= 9*3600 or row2 >= 5)
     rowl = np.array(rowl)
 
-    n_c = len(prefs)
-    n_d = len(dtes)
     max_days = days_worked
     min_days = days_worked
     # if base != 'SNA':
