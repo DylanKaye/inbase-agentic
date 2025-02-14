@@ -87,7 +87,10 @@ def analyze_run(base: str, seat: str):
     mar = pd.read_csv(f'selpair_setup_{seat}_dec.csv')
     xpv = pd.read_csv(f'xpv{base}.csv')
     prefs = pd.read_csv(f'bid_dat_test_{seat}.csv')
-    prefs = prefs[((prefs['user_base']==base)&(prefs['user_crew_type']==seat)&(prefs['user_name'].isin(od['name'].values)))].sort_values(by='user_seniority', ascending=False)
+    # Map seat abbreviation to its full crew role name
+    seat_full_mapping = {"CA": "captain", "FO": "first_officer", "FA": "flight_attendant"}
+    seat_full = seat_full_mapping.get(seat, seat)
+    prefs = prefs[((prefs['user_base']==base)&(prefs['user_role']==seat_full)&(prefs['user_name'].isin(od['name'].values)))].sort_values(by='user_seniority', ascending=False)
     
     # Check if we found any crew members
     if len(prefs) == 0:
