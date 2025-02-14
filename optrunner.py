@@ -10,7 +10,7 @@ with open(f"testing/{argv[1]}-{argv[2]}.txt", "w") as f:
 base = argv[1].upper()
 seat = argv[2].upper()
 
-if seat == 'FA':
+if seat in ['CA','FO','FA'] and base in ['DAL','BUR','LAS','SNA','OPF','SCF','OAK']: 
 
     fca(base, seat, '2025-03-01', '2025-03-31', 500)
     analyze_run(base, seat)

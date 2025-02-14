@@ -52,6 +52,10 @@ crew_id_map_e ['asalogue@jsx.com'] = 10183
 crew_id_map_e ['eric.ladner@jsx.com'] = 10304
 crew_id_map_e ['shane.viera@jsx.com'] = 10302
 crew_id_map_e ['michelle.barnett@jsx.com'] = 10303
+crew_id_map_e ['johanna.tocavargas@jsx.com'] = 10358
+crew_id_map_e ['daja.bailey@jsx.com'] = 10357
+crew_id_map_e ['shadyra.chambers@jsx.com'] = 10356
+crew_id_map_e ['brittany.massey@jsx.com'] = 10355
 
 # with open('pair_map_sept_4.json','r') as fp:
 #     pair_map = json.load(fp)
@@ -127,10 +131,10 @@ headers = {
     'Host': 'jsx.noc.vmc.navblue.cloud',
 }
 #POST request
-#response = requests.request("POST", url, headers=headers, data=payload)
+response = requests.request("POST", url, headers=headers, data=payload)
 
 # prints the response
-#print(response)
+print(response)
 
 print(xmlsetr)
 
@@ -194,7 +198,7 @@ headers = {
     'Host': 'jsx.noc.vmc.navblue.cloud',
 }
 #POST request
-#response = requests.request("POST", url, headers=headers, data=payload)
+response = requests.request("POST", url, headers=headers, data=payload)
 
 # prints the response
-#print(response)
+print(response)
