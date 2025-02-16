@@ -349,7 +349,7 @@ def fca(base, seat, d1, d2, seconds):
         
         # Calculate work pattern metrics more efficiently
         # 1. Chunks: count transitions from work to non-work
-        chunks = cp.sum(cp.pos(day_sums[:-1] - day_sums[1:]))
+        chunks = cp.sum(cp.pos(day_sums[:-1] - day_sums[1:])) 
         
         # 2. CDOs: count consecutive pairs of non-work days
         # Instead of using maximum, use a simpler formulation

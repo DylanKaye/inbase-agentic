@@ -20,7 +20,7 @@ selpairs['chart'] = [True if i.startswith('C') else False for i in selpairs['nam
 selpairs = selpairs[~((selpairs['base_start'] == 'SNA') & (selpairs['chart'] == True))]
 selpairs.pop('chart')
 
-selpairs = selpairs[~selpairs['idx'].isin([65799])].reset_index(drop=True)
+selpairs = selpairs[~selpairs['idx'].isin([65799,66811, 66856, 66869, 66909, 66945, 66991, 67012, 67076, 67096, 67156, 67166, 67182, 66699, 66767, 66820, 66843])].reset_index(drop=True)
 
 spg = selpairs.groupby('base_start')['mult'].sum()
 print([spg['BUR'], spg['DAL'], 0, spg['LAS'], 0, spg['OAK'], spg['SCF'], spg['SNA']])

@@ -11,13 +11,13 @@ BUR,14,0,0,nobase,nobase,15,16,Hap LeCompte,0,0,28,0,15,15,0
 BUR,15,0,0,nobase,nobase,15,16,Max Alipour,0,0,58,0,15,15,0
 BUR,12,0,0,nobase,nobase,12,13,Douglas Botimer,0,3,60,0,15,15,0
 BUR,4,0,0,nobase,nobase,4,8,Andrew Swatzell,2,11,75,1,15,17,0
-BUR,14,0,0,nobase,nobase,14,16,Jake Schoenneman,0,0,86,0,14,14,0
+BUR,15,0,0,nobase,nobase,14,16,Jake Schoenneman,0,0,86,0,14,14,0
 BUR,11,0,0,nobase,nobase,11,13,Donald Bruyn,0,3,94,0,14,14,0
 BUR,14,0,0,nobase,nobase,14,16,Cameron Mitchell,0,0,104,0,14,14,0
 BUR,11,0,0,nobase,nobase,11,16,Hassan Pourfard,1,3,129,0,14,15,0
-DAL,11,0,0,nobase,nobase,11,16,Anthony Burger,0,3,8,0,14,14,0
-DAL,14,0,0,nobase,nobase,14,19,Stephen Fredrick,0,0,15,0,14,14,0
-DAL,13,0,0,nobase,nobase,13,17,Wayman Swilley,0,1,17,0,14,14,0
+DAL,12,0,0,nobase,nobase,11,16,Anthony Burger,0,3,8,0,14,14,0
+DAL,15,0,0,nobase,nobase,14,19,Stephen Fredrick,0,0,15,0,14,14,0
+DAL,14,0,0,nobase,nobase,13,17,Wayman Swilley,0,1,17,0,14,14,0
 DAL,14,0,0,nobase,nobase,14,17,Michael Kastelic,0,0,23,0,14,14,0
 DAL,14,0,0,nobase,nobase,14,19,James Kearns,0,0,38,0,14,14,0
 DAL,14,0,0,nobase,nobase,14,18,Diego Suarez-Lozano,0,0,41,0,14,14,0
@@ -35,7 +35,7 @@ DAL,14,0,0,nobase,nobase,14,19,Gerardus Van Uitert,0,0,96,0,14,14,0
 DAL,13,0,0,nobase,nobase,13,17,Lowen Loftin,0,1,98,0,14,14,0
 DAL,14,0,0,nobase,nobase,14,18,Ford Spigener,0,0,99,0,14,14,0
 DAL,7,0,0,nobase,nobase,7,16,Howard Eliason,0,0,105,0,7,7,7
-DAL,14,0,0,nobase,nobase,14,19,Gregory Shepherd,0,0,110,0,14,14,0
+DAL,11,0,0,nobase,nobase,14,19,Gregory Shepherd,0,0,110,0,14,14,0
 DAL,9,0,0,nobase,nobase,7,16,Donald Lyle,0,0,114,0,7,7,7
 DAL,5,0,0,nobase,nobase,2,11,Charles Hughes,0,5,119,0,7,7,7
 DAL,5,0,0,nobase,nobase,5,9,Joshua Hample,0,9,143,0,14,14,0
@@ -69,7 +69,6 @@ OPF,15,0,0,nobase,nobase,14,16,Richard Weaver,0,0,121,0,14,14,0
 OPF,12,0,0,nobase,nobase,11,13,Wilfredo Rodriguez,7,3,128,0,14,21,0
 OPF,7,0,0,nobase,nobase,6,13,Jan Pashinski,7,3,130,1,9,16,5
 OPF,15,0,0,nobase,nobase,14,16,Christian Hamann Mangner,0,0,135,1,14,14,0
-SCF,0,0,1,BUR,BUR,7,9,Larry Kline,0,7,16,0,14,14,0
 SCF,12,0,0,nobase,nobase,12,14,Bertil Aagesen,0,2,21,0,14,14,0
 SCF,14,0,0,nobase,nobase,14,16,Charles Moehring,0,0,27,0,14,14,0
 SCF,5,0,0,nobase,nobase,5,17,James Maxwell,7,2,30,0,7,14,7
