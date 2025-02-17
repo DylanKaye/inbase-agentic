@@ -64,6 +64,8 @@
       border-left: 2px solid rgba(100,255,218,0.2);
       padding-left: 30px;
       position: relative;
+      min-width: 300px;
+      max-width: 500px;
     }
 
     textarea {
@@ -138,12 +140,17 @@
       white-space: pre-wrap;
       max-height: 300px;
       overflow-y: auto;
+      word-wrap: break-word;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
     }
 
     #chatHistory {
       max-height: 600px;
       overflow-y: auto;
       padding: 15px;
+      word-wrap: break-word;
     }
 
     .chat-entry {
@@ -151,6 +158,7 @@
       padding-bottom: 20px;
       border-bottom: 1px solid rgba(100,255,218,0.2);
       position: relative;
+      width: 100%;
     }
 
     .chat-entry::before {
@@ -181,6 +189,9 @@
       margin-top: 10px;
       color: #8892b0;
       padding-left: 20px;
+      white-space: pre-wrap;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .timestamp {
@@ -837,6 +848,9 @@
             const chatHistory = document.getElementById('chatHistory');
             chatHistory.insertBefore(historyEntry, chatHistory.firstChild);
             
+            // Ensure proper scrolling after adding new entry
+            historyEntry.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            
             // Clear the input box after sending
             commandInput.value = '';
             
@@ -851,6 +865,9 @@
             } else if (data.all_statuses) {
                 outputDiv.innerHTML = statusHtml;
             }
+            
+            // Update the output area scrolling
+            outputDiv.scrollTop = 0; // Scroll to top when new content is added
             
             // Play success sound
             const beepSound = document.getElementById('beepSound');
