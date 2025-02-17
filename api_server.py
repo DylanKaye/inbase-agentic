@@ -232,27 +232,38 @@ def check_status(base_arg: str, seat_arg: str) -> dict:
     
     # Check if optimization is currently running
     key = f"{base_arg}-{seat_arg}"
+    is_running = False
+    
     if key in running_optimizations:
         task = running_optimizations[key]
-        if not task.done():
-            logs.append("Status: Optimization is currently running")
-        else:
-            try:
-                result = task.result()
-                logs.append("Status: Optimization completed successfully")
-            except Exception as e:
-                logs.append(f"Status: Optimization failed with error: {str(e)}")
-            # Cleanup completed task
-            del running_optimizations[key]
+        try:
+            # Check if task is done without waiting
+            is_running = not task.done()
+            if is_running:
+                logs.append("Status: Optimization is currently running")
+            else:
+                # Task is complete
+                try:
+                    result = task.result()
+                    logs.append("Status: Optimization completed successfully")
+                except Exception as e:
+                    logs.append(f"Status: Optimization failed with error: {str(e)}")
+                # Cleanup completed task
+                del running_optimizations[key]
+        except Exception as e:
+            logs.append(f"Status: Error checking optimization status: {str(e)}")
     
     # Check for status file regardless of running status
     status_file = f"testing/{base_arg}-{seat_arg}.txt"
     
     if os.path.exists(status_file):
-        with open(status_file, "r") as f:
-            status = f.read()
-        logs.append("\nFile Status:")
-        logs.append(status)
+        try:
+            with open(status_file, "r") as f:
+                status = f.read().strip()
+            logs.append("\nFile Status:")
+            logs.append(status)
+        except Exception as e:
+            logs.append(f"Error reading status file: {str(e)}")
     
     return {"logs": logs}
 
