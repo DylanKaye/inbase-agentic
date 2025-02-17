@@ -776,7 +776,6 @@
         if (!command) return;
 
         try {
-            // Change from absolute to relative URL
             const response = await fetch('/command', {
                 method: 'POST',
                 headers: {
@@ -790,6 +789,7 @@
             }
             
             const data = await response.json();
+            let statusHtml = '';
             
             // Create chat history entry
             const historyEntry = document.createElement('div');
@@ -819,7 +819,7 @@
             } else if (data.message) {
                 responseDiv.textContent = data.message;
             } else if (data.all_statuses) {
-                const statusHtml = data.all_statuses.map(status => {
+                statusHtml = data.all_statuses.map(status => {
                     let statusText = `<strong>Base ${status.base}-${status.seat}:</strong><br>`;
                     if (status.error) {
                         statusText += `Error: ${status.error}`;
@@ -867,7 +867,7 @@
             }
             
             // Update the output area scrolling
-            outputDiv.scrollTop = 0; // Scroll to top when new content is added
+            outputDiv.scrollTop = 0;
             
             // Play success sound
             const beepSound = document.getElementById('beepSound');
