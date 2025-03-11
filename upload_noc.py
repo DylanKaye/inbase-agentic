@@ -19,65 +19,13 @@ seat_full = seat_full_mapping.get(seat, seat)
 
 prefs = prefs[((prefs['user_base']==base)&(prefs['user_role']==seat_full)&(prefs['user_name'].isin(od['name'].values)))].sort_values(by='user_seniority', ascending=False)
 
-names = prefs['user_name'].values
-emails = prefs['user_email'].values
-
-with open('crew_id_map.json','r') as fp:
-    crew_id_map = json.load(fp)
-    
-with open('crew_id_map_e.json','r') as fp:
-    crew_id_map_e = json.load(fp)
-crew_id_map_e = {k.lower():v for k,v in crew_id_map_e.items()}
-
-crew_id_map_e['lexie.leone@jsx.com'] = 75207
-crew_id_map_e['emily.fowler@jsx.com'] = 43480
-crew_id_map_e['skylar.manning@jsx.com'] = 39138
-crew_id_map_e['carly.ghafouri@jsx.com'] = 79914
-crew_id_map_e['ricardo.gutierrez@jsx.com'] = 99113
-crew_id_map_e['michael.boucher@jsx.com'] = 47727
-crew_id_map_e['robert.ferraro@jsx.com'] = 52586
-crew_id_map_e['chad.tucker@jsx.com'] = 15684
-crew_id_map_e['kelly.coble@jsx.com'] = 35816
-crew_id_map_e ['zachary.greenemeier@jsx.com'] = 42658
-crew_id_map_e ['matthew.bernier@jsx.com'] = 48229
-crew_id_map_e ['emily.gause@jsx.com'] = 22065
-crew_id_map_e ['shane.okeeffe@jsx.com'] = 41731
-crew_id_map_e ['joanna.pappy@jsx.com'] = 36838
-crew_id_map_e ['hannah.ilan@jsx.com'] = 36839
-crew_id_map_e ['marisa.malone@jsx.com'] = 36840
-crew_id_map_e ['steven.means@jsx.com'] = 36837
-crew_id_map_e ['deanna.english@jsx.com'] = 80048
-crew_id_map_e ['steven.means@jsx.com'] = 36837
-crew_id_map_e ['jennifer.sagong@jsx.com'] = 25569
-
-with open('crew_id_map_e2.json','r') as fp:
-    crew_id_map_e = json.load(fp)
-
-crew_id_map_e ['asalogue@jsx.com'] = 10183
-crew_id_map_e ['eric.ladner@jsx.com'] = 10304
-crew_id_map_e ['shane.viera@jsx.com'] = 10302
-crew_id_map_e ['michelle.barnett@jsx.com'] = 10303
-crew_id_map_e ['johanna.tocavargas@jsx.com'] = 10358
-crew_id_map_e ['daja.bailey@jsx.com'] = 10357
-crew_id_map_e ['shadyra.chambers@jsx.com'] = 10356
-crew_id_map_e ['brittany.massey@jsx.com'] = 10355
-crew_id_map_e ['noah.masier@jsx.com'] = 10305
-
-# with open('pair_map_sept_4.json','r') as fp:
-#     pair_map = json.load(fp)
-
-# with open('pidmap_sept_1.json','r') as fp:
-#     pidmap = json.load(fp)
-    
-# pidmap['dhdDAL01'] = 53396
-
-# for i in pair_map.values():
-#     if i not in pidmap.keys():
-#         print(i)
-
 xpv = pd.read_csv(f'xpv{base}.csv')
 
+with open('crew_id_map.json', 'r') as f:
+    crew_id_map = json.load(f)
+
 names = prefs[prefs['user_base']==base].sort_values(by='user_seniority', ascending=False)['user_name'].values
+cidlist = prefs[prefs['user_base']==base].sort_values(by='user_seniority', ascending=False)['user_noc_id'].values
 xmlsetr = []
 xmlsetr.append('<Crews>')
 dalpair = pd.read_csv(f'selpair_setup_{seat}_dec.csv')
@@ -88,8 +36,7 @@ for ind, row in enumerate(xpv.values):
     # .replace('Doug','Douglas').replace('Jerry','Jerrold').replace('Gregory','Greg').replace('Greg','Gregory').replace('Grant S','Vincent S')\
     # .replace('Alex Whitaker-Mares','Alejandro Whitaker Mares').replace('Richard Ardenvik','Ulf Ardenvik').replace('Dan Bae','Daniel Bae').replace('Steve Sessums','Stephen Sessums').replace('Zac Perkins','Zachary Perkins')\
     # .replace('Tony Quartano','Anthony Quartano').replace('Basil S','Vasily S')]
-    ema = emails[ind]
-    cid = crew_id_map_e[ema]
+    cid = crew_id_map[cidlist[ind]]
     xmlsetr.append('<Crew>')
     xmlsetr.append(f'<Number>{cid}</Number>')
     print(cid)
@@ -148,12 +95,12 @@ boff = 7
 baseoffs = 7
 dalpair = pd.read_csv(f'selpair_setup_{seat}_dec.csv')
 dalpair = dalpair[dalpair['base_start']==base].reset_index(drop=True)
-ema = prefs[prefs['user_base']==base].sort_values(by='user_seniority', ascending=False)['user_email'].values
+cidlist = prefs[prefs['user_base']==base].sort_values(by='user_seniority', ascending=False)['user_noc_id'].values
 xmlsetr = []
 xmlsetr.append('<Crews>')
 for ind, row in enumerate(xpv.values):
     nme = names[ind]
-    cid = crew_id_map_e[ema[ind]]
+    cid = crew_id_map[cidlist[ind]]
     xmlsetr.append('<Crew>')
     xmlsetr.append(f'<Number>{cid}</Number>')
     xmlsetr.append('<RosterActivities>')
