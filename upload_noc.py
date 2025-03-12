@@ -41,7 +41,7 @@ for ind, row in enumerate(xpv.values):
     # .replace('Doug','Douglas').replace('Jerry','Jerrold').replace('Gregory','Greg').replace('Greg','Gregory').replace('Grant S','Vincent S')\
     # .replace('Alex Whitaker-Mares','Alejandro Whitaker Mares').replace('Richard Ardenvik','Ulf Ardenvik').replace('Dan Bae','Daniel Bae').replace('Steve Sessums','Stephen Sessums').replace('Zac Perkins','Zachary Perkins')\
     # .replace('Tony Quartano','Anthony Quartano').replace('Basil S','Vasily S')]
-    cid = crew_id_map[cidlist[ind]]
+    cid = crew_id_map[str(int(cidlist[ind]))]
     xmlsetr.append('<Crew>')
     xmlsetr.append(f'<Number>{cid}</Number>')
     print(cid)
@@ -105,7 +105,7 @@ xmlsetr = []
 xmlsetr.append('<Crews>')
 for ind, row in enumerate(xpv.values):
     nme = names[ind]
-    cid = crew_id_map[cidlist[ind]]
+    cid = crew_id_map[str(int(cidlist[ind]))]
     xmlsetr.append('<Crew>')
     xmlsetr.append(f'<Number>{cid}</Number>')
     xmlsetr.append('<RosterActivities>')
