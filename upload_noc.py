@@ -8,10 +8,6 @@ from utils import get_date_range
 base = argv[1]
 seat = argv[2]
 
-# Replace hardcoded dates like:
-# upload_date_start = "2025-03-01"
-# upload_date_end = "2025-03-31"
-
 # With:
 upload_date_start, upload_date_end = get_date_range()
 # Add one day to upload_date_end
@@ -94,10 +90,8 @@ headers = {
 response = requests.request("POST", url, headers=headers, data=payload)
 
 # prints the response
-# print(response)
+print(response)
 
-# print(xmlsetr)
-print(payload)
 boff = 7
 baseoffs = 7
 dalpair = pd.read_csv(f'selpair_setup_{seat}.csv')
@@ -158,8 +152,7 @@ headers = {
     'Host': 'jsx.noc.vmc.navblue.cloud',
 }
 #POST request
-# response = requests.request("POST", url, headers=headers, data=payload)
+response = requests.request("POST", url, headers=headers, data=payload)
 
 # # prints the response
-# print(response)
-print(payload)
+print(response)
