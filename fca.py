@@ -716,9 +716,9 @@ def fca(base, seat, d1, d2, seconds):
                 late_dist = 0
             elif is_overnight[idx]:
                 # Overnights have 5% of normal penalty
-                early_dist = 0
-                middle_dist = 0
-                late_dist = 0
+                early_dist = int(round(early_dist*.2))
+                middle_dist = int(round(middle_dist*.25))
+                late_dist = int(round(late_dist*.2))
             
             # Store penalties for each preference type
             time_penalties[1].append(early_dist)
