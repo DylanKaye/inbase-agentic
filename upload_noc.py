@@ -92,10 +92,10 @@ headers = {
 response = requests.request("POST", url, headers=headers, data=payload)
 
 # prints the response
-print(response)
+# print(response)
 
-print(xmlsetr)
-
+# print(xmlsetr)
+print(payload)
 boff = 7
 baseoffs = 7
 dalpair = pd.read_csv(f'selpair_setup_{seat}.csv')
@@ -156,7 +156,8 @@ headers = {
     'Host': 'jsx.noc.vmc.navblue.cloud',
 }
 #POST request
-response = requests.request("POST", url, headers=headers, data=payload)
+# response = requests.request("POST", url, headers=headers, data=payload)
 
-# prints the response
-print(response)
+# # prints the response
+# print(response)
+print(payload)
