@@ -709,16 +709,16 @@ def fca(base, seat, d1, d2, seconds):
             late_dist = abs(hour - late_time)
             
             # Apply special handling for overnights and reserves
-            # if is_reserve[idx]:
-            #     # Reserves have 0 penalty
-            #     early_dist = 0
-            #     middle_dist = 0
-            #     late_dist = 0
-            # elif is_overnight[idx]:
-            #     # Overnights have 5% of normal penalty
-            #     early_dist *= 0.05
-            #     middle_dist *= 0.05
-            #     late_dist *= 0.05
+            if is_reserve[idx]:
+                # Reserves have 0 penalty
+                early_dist = 0
+                middle_dist = 0
+                late_dist = 0
+            elif is_overnight[idx]:
+                # Overnights have 5% of normal penalty
+                early_dist = 0
+                middle_dist = 0
+                late_dist = 0
             
             # Store penalties for each preference type
             time_penalties[1].append(early_dist)
