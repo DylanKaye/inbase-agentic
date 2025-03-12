@@ -693,11 +693,32 @@ def fca(base, seat, d1, d2, seconds):
         time_penalties[2] = []  # Middle preference
         time_penalties[3] = []  # Late preference
         
+        # Create masks for special pairing types
+        is_overnight = dalpair['mult'] > 1
+        is_reserve = np.zeros(n_p, dtype=bool)
+        if len(r_idxs) > 0:
+            for idx in r_idxs:
+                is_reserve[idx] = True
+        
+        print(f"Found {is_overnight.sum()} overnight pairings and {is_reserve.sum()} reserve pairings")
+        
         for idx, hour in enumerate(dalpair['shour'].values):
             # Calculate distance from each preferred time
             early_dist = abs(hour - early_time)
             middle_dist = abs(hour - middle_time)
             late_dist = abs(hour - late_time)
+            
+            # Apply special handling for overnights and reserves
+            if is_reserve[idx]:
+                # Reserves have 0 penalty
+                early_dist = 0
+                middle_dist = 0
+                late_dist = 0
+            elif is_overnight[idx]:
+                # Overnights have 5% of normal penalty
+                early_dist *= 0.05
+                middle_dist *= 0.05
+                late_dist *= 0.05
             
             # Store penalties for each preference type
             time_penalties[1].append(early_dist)
@@ -709,6 +730,7 @@ def fca(base, seat, d1, d2, seconds):
             time_penalties[pref] = np.array(time_penalties[pref])
         
         print(f"Time penalties calculated based on distance from preferred times", flush=True)
+        print(f"Penalties reduced for overnight pairings and set to 0 for reserve pairings", flush=True)
         
         # Replace the existing timeofday constraint
         for c in range(n_c):
