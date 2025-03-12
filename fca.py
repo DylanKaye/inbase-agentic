@@ -246,7 +246,7 @@ def fca(base, seat, d1, d2, seconds):
         
         pover = []
         for i in prefs['overnight_preference'].values:
-            if i == "None":
+            if i == "No Overnights":
                 val = 1
             elif i == "Many":
                 val = 3
