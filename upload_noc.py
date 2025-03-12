@@ -14,6 +14,8 @@ seat = argv[2]
 
 # With:
 upload_date_start, upload_date_end = get_date_range()
+# Add one day to upload_date_end
+upload_date_end = (pd.to_datetime(upload_date_end) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
 
 od = pd.read_csv(f'{seat}_crew_records.csv')
 prefs = pd.read_csv(f'bid_dat_test.csv')
@@ -76,7 +78,7 @@ payload = f"""<?xml version="1.0" encoding="utf-8"?>
         <Password>superP@rrot13</Password>
         <SetRostersFilter>
         <From>{upload_date_start}T05:30:00</From>
-        <To>{upload_date_end}T00:00:00</To>
+        <To>{upload_date_end}T23:00:00</To>
         <RemoveCarryInActivities>false</RemoveCarryInActivities>
         <RemoveCarryOutActivities>false</RemoveCarryOutActivities>
         </SetRostersFilter>\n""" + '\n'.join(xmlsetr) +\
@@ -143,7 +145,7 @@ payload = f"""<?xml version="1.0" encoding="utf-8"?>
         <Password>superP@rrot13</Password>
         <SetRostersFilter>
         <From>{upload_date_start}T05:30:00</From>
-        <To>{upload_date_end}T00:00:00</To>
+        <To>{upload_date_end}T23:00:00</To>
         <RemoveCarryInActivities>false</RemoveCarryInActivities>
         <RemoveCarryOutActivities>false</RemoveCarryOutActivities>
         </SetRostersFilter>\n""" + '\n'.join(xmlsetr) +\
