@@ -693,14 +693,14 @@ def fca(base, seat, d1, d2, seconds):
         time_penalties[2] = []  # Middle preference
         time_penalties[3] = []  # Late preference
         
-        # Create masks for special pairing types
-        is_overnight = dalpair['mult'] > 1
+        # Create masks for special pairing types - convert to numpy arrays for consistent indexing
+        is_overnight = dalpair['mult'].values > 1  # Convert to numpy array right away
         is_reserve = np.zeros(n_p, dtype=bool)
         if len(r_idxs) > 0:
             for idx in r_idxs:
                 is_reserve[idx] = True
         
-        print(f"Found {is_overnight.sum()} overnight pairings and {is_reserve.sum()} reserve pairings")
+        print(f"Found {np.sum(is_overnight)} overnight pairings and {np.sum(is_reserve)} reserve pairings")
         
         for idx, hour in enumerate(dalpair['shour'].values):
             # Calculate distance from each preferred time
