@@ -706,7 +706,7 @@ def fca(base, seat, d1, d2, seconds):
         print(f"Using time preferences for {base}: Early={early_time}, Middle={middle_time}, Late={late_time}", flush=True)
         
         # First calculate maximum possible distance for normalization
-        max_time_distance = 24  # Maximum hours distance in a day
+        max_time_distance = 10  # Maximum hours distance in a day
         
         # Create a bonus-only time preference system with integer values
         time_bonuses = {}
@@ -736,7 +736,7 @@ def fca(base, seat, d1, d2, seconds):
             if len(r_idxs) > 0 and pref_reserves[c] == 1:  # Prefers reserves
                 # Boost reserve bonuses
                 for idx in r_idxs:
-                    bonuses[idx] = 10  # Maximum bonus for preferred reserves
+                    bonuses[idx] = 4  # Maximum bonus for preferred reserves
             
             # Create a copy of the boolean mask to avoid modifying original data
             is_overnight = dalpair['mult'].values > 1
@@ -744,17 +744,17 @@ def fca(base, seat, d1, d2, seconds):
             if pref_over[c] == 3:  # Prefers many overnights
                 # Boost overnight bonuses - ensure result is integer
                 temp_bonuses = bonuses.copy()
-                temp_bonuses[is_overnight] = np.round(temp_bonuses[is_overnight] * 1.5).astype(int)
+                temp_bonuses[is_overnight] = int(temp_bonuses[is_overnight] * 1.5)
                 bonuses = np.minimum(temp_bonuses, 10)  # Cap at 10
             elif pref_over[c] == 2:  # Prefers some overnights
                 # Slight boost for overnight bonuses - ensure result is integer
                 temp_bonuses = bonuses.copy()
-                temp_bonuses[is_overnight] = np.round(temp_bonuses[is_overnight] * 1.2).astype(int)
+                temp_bonuses[is_overnight] = int(temp_bonuses[is_overnight] * 1.2)
                 bonuses = np.minimum(temp_bonuses, 10)  # Cap at 10
             elif pref_over[c] == 1:  # No overnights
                 # Reduce overnight bonuses - ensure result is integer
                 temp_bonuses = bonuses.copy()
-                temp_bonuses[is_overnight] = np.round(temp_bonuses[is_overnight] * 0.8).astype(int)
+                temp_bonuses[is_overnight] = int(temp_bonuses[is_overnight] * 0.8)
                 bonuses = temp_bonuses
             
             time_bonuses[c] = bonuses
