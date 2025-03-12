@@ -8,6 +8,22 @@ import os
 from datetime import datetime, timedelta
 from utils import get_date_range, capture_solver_output
 
+# Define preferred times for each base
+BASE_TIME_PREFERENCES = {
+    'DAL': [7, 12, 17],  # Early, Middle, Late hours
+    'BUR': [7, 11, 15],
+    'HOU': [7, 12, 17],
+    'LAS': [6, 11, 16],
+    'MCO': [7, 12, 17],
+    'OAK': [8, 12, 16],
+    'OPF': [7, 12, 17],
+    'SCF': [7, 12, 17],
+    'SNA': [8, 12, 16]
+}
+
+# Default values if base not found in the dictionary
+DEFAULT_TIME_PREFERENCES = [7, 12, 17]
+
 def fca(base, seat, d1, d2, seconds):
     print(f"FCA optimization started for {base} {seat} from {d1} to {d2} with {seconds} seconds time limit", flush=True)
     print(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", flush=True)
@@ -265,7 +281,7 @@ def fca(base, seat, d1, d2, seconds):
                 val = 1
             elif i == "PM":
                 val = 3
-            elif i == 'Midday':
+            elif 'Midday':
                 val = 2
             else:
                 val = 4
@@ -682,68 +698,78 @@ def fca(base, seat, d1, d2, seconds):
         # constraints += [cp.sum(xp[fav,houidxs]) == 3]
         # constraints += [cp.sum(xp[-1,houidxs])+cp.sum(xp[-2,houidxs])+cp.sum(xp[-4,houidxs]) == 6]
 
-        # Replace the existing time preference code with a distance-based approach
-        early_time = 7  # 7 AM
-        middle_time = 12  # 12 PM
-        late_time = 17  # 5 PM
-
-        # Calculate time distance penalties for each pairing
-        time_penalties = {}
-        time_penalties[1] = []  # Early preference
-        time_penalties[2] = []  # Middle preference
-        time_penalties[3] = []  # Late preference
+        # Replace the personalized time penalty system with a bonus-only approach
+        # Use base-specific time preferences
+        base_times = BASE_TIME_PREFERENCES.get(base, DEFAULT_TIME_PREFERENCES)
+        early_time = base_times[0]  # Early hour
+        middle_time = base_times[1]  # Middle hour
+        late_time = base_times[2]   # Late hour
         
-        # Create masks for special pairing types - convert to numpy arrays for consistent indexing
-        is_overnight = dalpair['mult'].values > 1  # Convert to numpy array right away
-        is_reserve = np.zeros(n_p, dtype=bool)
-        if len(r_idxs) > 0:
-            for idx in r_idxs:
-                is_reserve[idx] = True
+        print(f"Using time preferences for {base}: Early={early_time}, Middle={middle_time}, Late={late_time}", flush=True)
         
-        print(f"Found {np.sum(is_overnight)} overnight pairings and {np.sum(is_reserve)} reserve pairings")
+        # First calculate maximum possible distance for normalization
+        max_time_distance = 24  # Maximum hours distance in a day
         
-        for idx, hour in enumerate(dalpair['shour'].values):
-            # Calculate distance from each preferred time
-            early_dist = abs(hour - early_time)
-            middle_dist = abs(hour - middle_time)
-            late_dist = abs(hour - late_time)
-            
-            # Apply special handling for overnights and reserves
-            if is_reserve[idx]:
-                # Reserves have 0 penalty
-                early_dist = 0
-                middle_dist = 0
-                late_dist = 0
-            elif is_overnight[idx]:
-                # Overnights have 5% of normal penalty
-                early_dist = int(round(early_dist*.2))
-                middle_dist = int(round(middle_dist*.25))
-                late_dist = int(round(late_dist*.2))
-            
-            # Store penalties for each preference type
-            time_penalties[1].append(early_dist)
-            time_penalties[2].append(middle_dist)
-            time_penalties[3].append(late_dist)
-        
-        # Convert to numpy arrays for efficient computation
-        for pref in time_penalties:
-            time_penalties[pref] = np.array(time_penalties[pref])
-        
-        print(f"Time penalties calculated based on distance from preferred times", flush=True)
-        print(f"Penalties reduced for overnight pairings and set to 0 for reserve pairings", flush=True)
-        
-        # Replace the existing timeofday constraint
+        # Create a bonus-only time preference system with integer values
+        time_bonuses = {}
         for c in range(n_c):
             pref = pref_time[c]
-            if pref in [1, 2, 3]:  # Early, Middle, Late
-                # Calculate total penalty as the sum of distances from preferred time
-                # Lower penalty is better, so we negate it for maximization
-                penalty = cp.sum(cp.multiply(time_penalties[pref], xp[c]))
-                constraints += [ptime[c] == -penalty]
-            else:
-                # No preference
-                constraints += [ptime[c] == 0]
+            if pref not in [1, 2, 3]:  # No time preference
+                time_bonuses[c] = np.zeros(n_p, dtype=int)
                 continue
+                
+            # Choose reference time based on preference
+            if pref == 1:  # Early
+                ref_time = early_time
+            elif pref == 2:  # Middle
+                ref_time = middle_time
+            else:  # Late
+                ref_time = late_time
+            
+            # Calculate raw distances
+            distances = np.abs(dalpair['shour'].values - ref_time)
+            
+            # Convert distances to integer bonuses (closer = higher bonus)
+            # Normalize to 0-10 range where 10 is perfect match and 0 is furthest possible
+            # Round to nearest integer to ensure all values are integers
+            bonuses = np.round(10 * (1 - distances / max_time_distance)).astype(int)
+            
+            # Apply modifications for reserves and overnights ONLY if crew prefers them
+            if len(r_idxs) > 0 and pref_reserves[c] == 1:  # Prefers reserves
+                # Boost reserve bonuses
+                for idx in r_idxs:
+                    bonuses[idx] = 10  # Maximum bonus for preferred reserves
+            
+            # Create a copy of the boolean mask to avoid modifying original data
+            is_overnight = dalpair['mult'].values > 1
+            
+            if pref_over[c] == 3:  # Prefers many overnights
+                # Boost overnight bonuses - ensure result is integer
+                temp_bonuses = bonuses.copy()
+                temp_bonuses[is_overnight] = np.round(temp_bonuses[is_overnight] * 1.5).astype(int)
+                bonuses = np.minimum(temp_bonuses, 10)  # Cap at 10
+            elif pref_over[c] == 2:  # Prefers some overnights
+                # Slight boost for overnight bonuses - ensure result is integer
+                temp_bonuses = bonuses.copy()
+                temp_bonuses[is_overnight] = np.round(temp_bonuses[is_overnight] * 1.2).astype(int)
+                bonuses = np.minimum(temp_bonuses, 10)  # Cap at 10
+            elif pref_over[c] == 1:  # No overnights
+                # Reduce overnight bonuses - ensure result is integer
+                temp_bonuses = bonuses.copy()
+                temp_bonuses[is_overnight] = np.round(temp_bonuses[is_overnight] * 0.8).astype(int)
+                bonuses = temp_bonuses
+            
+            time_bonuses[c] = bonuses
+            
+        print(f"Created bonus-only integer time preference system", flush=True)
+        
+        # Replace the existing timeofday constraint with the bonus system
+        for c in range(n_c):
+            # Use the bonus values directly (higher is better for maximization)
+            if pref_time[c] in [1, 2, 3]:  # Has time preference
+                constraints += [ptime[c] == cp.sum(cp.multiply(time_bonuses[c], xp[c]))]
+            else:
+                constraints += [ptime[c] == 0]
 
         #reserves
         if len(r_idxs) > 0:
@@ -824,7 +850,7 @@ def fca(base, seat, d1, d2, seconds):
             char_val = cp.sum(pcha)
         else:
             char_val = 0
-        objective = cp.Maximize(.3*cp.sum(cdos) - .3*cp.sum(chnk) + 3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + .05*cp.sum(cp.multiply(ptime,sen)) + 1.5*res_val + char_val)
+        objective = cp.Maximize(.3*cp.sum(cdos) - .3*cp.sum(chnk) + 3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + .2*cp.sum(cp.multiply(ptime,sen)) + 1.5*res_val + char_val)
         #objective = cp.Maximize(3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + .3*cp.sum(cp.multiply(ptime,sen)) + 4*cp.sum(ppto) + 1.5*res_val + char_val)
         #objective = cp.Maximize(1.5*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + cp.sum(cp.multiply(ptime,sen)) + 3*cp.sum(ppto) + 1.1*res_val + char_val)
         #objective = cp.Maximize(cp.sum(po) + cp.sum(pover) + cp.sum(ptime) + cp.sum(ppto) + cp.sum(cp.minimum(pres, np.ones(n_c)*3)))# - cp.max(over) + cp.min(over))# + cp.sum(ppto))
