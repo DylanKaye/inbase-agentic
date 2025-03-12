@@ -744,17 +744,18 @@ def fca(base, seat, d1, d2, seconds):
             if pref_over[c] == 3:  # Prefers many overnights
                 # Boost overnight bonuses - ensure result is integer
                 temp_bonuses = bonuses.copy()
-                temp_bonuses[is_overnight] = int(temp_bonuses[is_overnight] * 1.5)
+                # Apply multiplication first, then convert to integer (rounding down)
+                temp_bonuses[is_overnight] = np.floor(temp_bonuses[is_overnight] * 1.5).astype(int)
                 bonuses = np.minimum(temp_bonuses, 10)  # Cap at 10
             elif pref_over[c] == 2:  # Prefers some overnights
                 # Slight boost for overnight bonuses - ensure result is integer
                 temp_bonuses = bonuses.copy()
-                temp_bonuses[is_overnight] = int(temp_bonuses[is_overnight] * 1.2)
+                temp_bonuses[is_overnight] = np.floor(temp_bonuses[is_overnight] * 1.2).astype(int)
                 bonuses = np.minimum(temp_bonuses, 10)  # Cap at 10
             elif pref_over[c] == 1:  # No overnights
                 # Reduce overnight bonuses - ensure result is integer
                 temp_bonuses = bonuses.copy()
-                temp_bonuses[is_overnight] = int(temp_bonuses[is_overnight] * 0.8)
+                temp_bonuses[is_overnight] = np.floor(temp_bonuses[is_overnight] * 0.8).astype(int)
                 bonuses = temp_bonuses
             
             time_bonuses[c] = bonuses
