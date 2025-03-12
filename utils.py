@@ -24,32 +24,66 @@ def get_global_date():
     Returns:
         dict: Dictionary with month and year
     """
-    with open('../pbsoptimizer/global_date.txt', 'r') as f:
-        lines = f.read().strip().split('\n')
-    
-    # If file has at least 4 lines, use the stored month and year
-    if len(lines) >= 4:
-        month = lines[2]
-        year = int(lines[3])
-    else:
-        # Parse from the start date if month and year aren't explicitly stored
-        start_date = lines[0]
-        date_parts = start_date.split('-')
-        month_num = int(date_parts[1])
-        month = NUM_TO_MONTH.get(month_num, "None")
-        year = int(date_parts[0])
-    
-    return {"month": month, "year": year}
+    try:
+        with open('../pbsoptimizer/global_date.txt', 'r') as f:
+            lines = f.read().strip().split('\n')
+        
+        # If file has at least 4 lines, use the stored month and year
+        if len(lines) >= 4:
+            month = lines[2]
+            year = int(lines[3])
+        else:
+            # Parse from the start date if month and year aren't explicitly stored
+            start_date = lines[0]
+            date_parts = start_date.split('-')
+            month_num = int(date_parts[1])
+            month = NUM_TO_MONTH.get(month_num, "None")
+            year = int(date_parts[0])
+        
+        return {"month": month, "year": year}
+    except (FileNotFoundError, IndexError, ValueError) as e:
+        print(f"Error reading global date file: {e}")
+        # Default to current month/year if there's an error
+        now = datetime.now()
+        return {"month": NUM_TO_MONTH.get(now.month, "Jan"), "year": now.year}
 
 def get_date_range():
     """
-    Get the date range for the optimization period.
-    Currently hardcoded to March 2025, but could be made configurable.
+    Get the date range for the optimization period based on the global date.
+    Returns the first and last days of the month from the global date.
     
     Returns:
         tuple: (start_date, end_date) as strings in YYYY-MM-DD format
     """
-    return "2025-03-01", "2025-03-31"
+    # Get the month and year from global date
+    date_info = get_global_date()
+    month_str = date_info["month"]
+    year = date_info["year"]
+    
+    # Convert month name to number
+    month_num = MONTH_TO_NUM.get(month_str, 1)  # Default to January if month not found
+    
+    # First day is always 1
+    first_day = 1
+    
+    # Calculate last day of month
+    if month_str in ["Jan", "Mar", "May", "Jul", "Aug", "Oct", "Dec"]:
+        last_day = 31
+    elif month_str in ["Apr", "Jun", "Sep", "Nov"]:
+        last_day = 30
+    else:  # February
+        # Check for leap year
+        if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0):
+            last_day = 29  # Leap year
+        else:
+            last_day = 28  # Non-leap year
+    
+    # Format dates
+    start_date = f"{year}-{month_num:02d}-{first_day:02d}"
+    end_date = f"{year}-{month_num:02d}-{last_day:02d}"
+    
+    print(f"Using date range: {start_date} to {end_date}")
+    return start_date, end_date
 
 def capture_solver_output(solver_command, output_file=None, tee=True):
     """
