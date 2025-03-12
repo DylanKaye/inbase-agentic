@@ -743,4 +743,4 @@ def fca(base, seat, d1, d2, seconds):
 # period_end = "2025-03-31"
 
 # With:
-period_start, period_end = get_date_range()
+#period_start, period_end = get_date_range()

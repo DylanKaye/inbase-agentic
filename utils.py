@@ -14,7 +14,7 @@ def get_global_date():
     Returns:
         dict: Dictionary with month and year
     """
-    with open('../pbsfunctions/global_date.txt', 'r') as f:
+    with open('../pbsoptimizer/global_date.txt', 'r') as f:
         lines = f.read().strip().split('\n')
     
     # If file has at least 4 lines, use the stored month and year
