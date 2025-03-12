@@ -158,7 +158,7 @@ def fca(base, seat, d1, d2, seconds):
             constr_rest.append(eval(k) + v)
 
         # Add constraints for pairings with long duty times (over 11 hours)
-        long_duty_pairings = dalpair[dalpair['dtime'] > 11*3600]['dalidx'].values
+        long_duty_pairings = dalpair[dalpair['dtime'] >= 11*3600]['dalidx'].values
         print(f"Found {len(long_duty_pairings)} pairings with duty time > 11 hours", flush=True)
 
         # For each long duty pairing, find other long duty pairings within 1 day
