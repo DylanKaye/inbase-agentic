@@ -14,7 +14,7 @@ seat = 'CA'
 selpairs = pd.read_csv(f'pairing_file_mar.csv')
 
 bdt = pd.read_csv(f'{seat}_crew_records.csv')
-bdt[bdt['non tdy days worked']!=0].to_csv(f'{seat}_crew_records.csv',index=False)
+bdt[bdt['non_tdy_days_worked']!=0].to_csv(f'{seat}_crew_records.csv',index=False)
 
 selpairs['chart'] = [True if i.startswith('C') else False for i in selpairs['name'].values]
 selpairs = selpairs[~((selpairs['base_start'] == 'SNA') & (selpairs['chart'] == True))]

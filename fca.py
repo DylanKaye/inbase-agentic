@@ -18,7 +18,7 @@ def fca(base, seat, d1, d2, seconds):
 
     tot_days = []
     is_tdy = []
-    for row in inbasedat[['non tdy days worked','5day tdy','6day tdy','base']].values:
+    for row in inbasedat[['non_tdy_days_worked','five_day_tdy','six_day_tdy','base']].values:
         if row[1] and row[3] != base:
             tot_days.append(5)
             is_tdy.append(True)

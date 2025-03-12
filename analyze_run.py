@@ -131,7 +131,7 @@ def analyze_run(base: str, seat: str):
         log(f"\nAnalyzing {names[k]}")
         log_line(f"\nFor {names[k]}")
         days = mar[mar['idx'].isin(v)][['d1','d2','idx','mult']].sort_values(by='d1').values
-        dbd = od[od['name']==names[k]]['non tdy days worked'].values[0]
+        dbd = od[od['name']==names[k]]['non_tdy_days_worked'].values[0]
         npsd = np.sum(days[:,-1])
         log(f"Days worked - NPSD: {npsd}, DBD: {dbd}")
         sum_npsd += npsd
