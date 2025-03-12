@@ -10,19 +10,17 @@ from utils import get_date_range, capture_solver_output
 
 # Define preferred times for each base
 BASE_TIME_PREFERENCES = {
-    'DAL': [7, 12, 17],  # Early, Middle, Late hours
-    'BUR': [7, 11, 15],
-    'HOU': [7, 12, 17],
-    'LAS': [6, 11, 16],
-    'MCO': [7, 12, 17],
-    'OAK': [8, 12, 16],
-    'OPF': [7, 12, 17],
-    'SCF': [7, 12, 17],
-    'SNA': [8, 12, 16]
+    'DAL': [6, 11, 17],
+    'BUR': [6, 12, 15],
+    'LAS': [6, 10, 14],
+    'OAK': [7, 9, 11],
+    'OPF': [9, 10, 11], 
+    'SCF': [6, 10, 16],
+    'SNA': [7, 9, 11]
 }
 
 # Default values if base not found in the dictionary
-DEFAULT_TIME_PREFERENCES = [7, 12, 17]
+DEFAULT_TIME_PREFERENCES = [7, 11, 15]
 
 def fca(base, seat, d1, d2, seconds):
     print(f"FCA optimization started for {base} {seat} from {d1} to {d2} with {seconds} seconds time limit", flush=True)
