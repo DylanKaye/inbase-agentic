@@ -10,14 +10,6 @@ def analyze_run(base: str, seat: str):
     seat = seat.upper()
 
     od = pd.read_csv(f'{seat}_crew_records.csv')
-
-    with open('crew_id_map.json','r') as fp:
-        crew_id_map = json.load(fp)
-        
-    with open('crew_id_map_e.json','r') as fp:
-        crew_id_map_e = json.load(fp)
-    crew_id_map_e = {k.lower():v for k,v in crew_id_map_e.items()}
-
     # Create output file
     output_file = f'testing/{base}-{seat}-opt.txt'
     output_file_line = f'testing/{base}-{seat}-line.txt'
@@ -40,48 +32,6 @@ def analyze_run(base: str, seat: str):
         print(message)
         with open(output_file_line, 'a') as f:
             f.write(str(message) + '\n')
-
-    # Add crew ID mappings
-    crew_id_map_e['lexie.leone@jsx.com'] = 75207
-    crew_id_map_e['emily.fowler@jsx.com'] = 43480
-    crew_id_map_e['skylar.manning@jsx.com'] = 39138
-    crew_id_map_e['carly.ghafouri@jsx.com'] = 79914
-    crew_id_map_e['ricardo.gutierrez@jsx.com'] = 99113
-    crew_id_map_e['michael.boucher@jsx.com'] = 47727
-    crew_id_map_e['robert.ferraro@jsx.com'] = 52586
-    crew_id_map_e['chad.tucker@jsx.com'] = 15684
-    crew_id_map_e['kelly.coble@jsx.com'] = 35816
-    crew_id_map_e ['zachary.greenemeier@jsx.com'] = 42658
-    crew_id_map_e ['matthew.bernier@jsx.com'] = 48229
-    crew_id_map_e ['emily.gause@jsx.com'] = 22065
-    crew_id_map_e ['shane.okeeffe@jsx.com'] = 41731
-    crew_id_map_e ['joanna.pappy@jsx.com'] = 36838
-    crew_id_map_e ['hannah.ilan@jsx.com'] = 36839
-    crew_id_map_e ['marisa.malone@jsx.com'] = 36840
-    crew_id_map_e ['steven.means@jsx.com'] = 36837
-    crew_id_map_e ['deanna.english@jsx.com'] = 80048
-    crew_id_map_e ['steven.means@jsx.com'] = 36837
-    crew_id_map_e ['jennifer.sagong@jsx.com'] = 25569
-
-    with open('crew_id_map_e2.json','r') as fp:
-        crew_id_map_e = json.load(fp)
-
-    crew_id_map_e ['asalogue@jsx.com'] = 10183
-    crew_id_map_e ['eric.ladner@jsx.com'] = 10304
-    crew_id_map_e ['shane.viera@jsx.com'] = 10302
-    crew_id_map_e ['michelle.barnett@jsx.com'] = 10303
-
-    # with open('pair_map_sept_4.json','r') as fp:
-    #     pair_map = json.load(fp)
-
-    # with open('pidmap_sept_1.json','r') as fp:
-    #     pidmap = json.load(fp)
-        
-    # pidmap['dhdDAL01'] = 53396
-
-    # for i in pair_map.values():
-    #     if i not in pidmap.keys():
-    #         print(i)
         
     trassd = {}
     mar = pd.read_csv(f'selpair_setup_{seat}.csv')
