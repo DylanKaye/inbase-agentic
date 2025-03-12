@@ -17,6 +17,10 @@ def main():
     base = "DAL"
     seat = "CA"
     
+    # Expected log files
+    log_file = f"logs/{base}_{seat}.log"
+    error_file = f"logs/{base}_{seat}_error.log"
+    
     print(f"Testing logging for {base} {seat}")
     print(f"Starting test at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
@@ -38,25 +42,24 @@ def main():
             print(stderr.decode())
         
         # Check if log files were created
-        log_files = [f for f in os.listdir("logs") if f.startswith(f"{base}_{seat}")]
+        log_files = [log_file, error_file]
         
-        if log_files:
-            print(f"\nLog files created:")
-            for log_file in log_files:
-                file_path = os.path.join("logs", log_file)
+        print(f"\nChecking log files:")
+        for file_path in log_files:
+            if os.path.exists(file_path):
                 file_size = os.path.getsize(file_path)
-                print(f"- {log_file} ({file_size} bytes)")
+                print(f"- {os.path.basename(file_path)} exists ({file_size} bytes)")
                 
                 # Print the first few lines of each log file
-                print(f"\nPreview of {log_file}:")
+                print(f"\nPreview of {os.path.basename(file_path)}:")
                 with open(file_path, 'r') as f:
                     lines = f.readlines()
                     for i, line in enumerate(lines[:10]):
                         print(f"  {i+1}: {line.strip()}")
                     if len(lines) > 10:
                         print(f"  ... and {len(lines) - 10} more lines")
-        else:
-            print("\nNo log files were created!")
+            else:
+                print(f"- {os.path.basename(file_path)} does not exist!")
             
         # Check status files
         status_files = [f for f in os.listdir("testing") if f.startswith(f"{base}-{seat}")]

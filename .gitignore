@@ -1,0 +1,29 @@
+# Virtual Environment
+new_env/
+venv/
+env/
+ENV/
+
+# Text and CSV files
+*.txt
+*.csv
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Logs
+logs/
+*.log
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo 

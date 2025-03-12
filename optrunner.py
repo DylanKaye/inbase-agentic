@@ -12,33 +12,58 @@ from utils import get_date_range
 # Create logs directory if it doesn't exist
 os.makedirs("logs", exist_ok=True)
 
-# Get current timestamp for log files
-timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+# Get base and seat from command line arguments
 base = argv[1].upper() if len(argv) > 1 else "UNKNOWN"
 seat = argv[2].upper() if len(argv) > 2 else "UNKNOWN"
 
-# Log file paths
-log_file = f"logs/{base}_{seat}_{timestamp}.log"
-error_file = f"logs/{base}_{seat}_{timestamp}_error.log"
+# Log file paths without timestamp - will overwrite previous logs
+log_file = f"logs/{base}_{seat}.log"
+error_file = f"logs/{base}_{seat}_error.log"
 
 # Create status file
 with open(f"testing/{base}-{seat}.txt", "w") as f:
     f.write("running")
+    f.flush()
+
+# Custom stdout and stderr classes that flush after every write
+class FlushingFileWriter:
+    def __init__(self, file_path, mode='w'):
+        self.file = open(file_path, mode)
+        self.original_stream = None
+    
+    def write(self, text):
+        self.file.write(text)
+        self.file.flush()
+        if self.original_stream:
+            self.original_stream.write(text)
+            self.original_stream.flush()
+    
+    def flush(self):
+        self.file.flush()
+        if self.original_stream:
+            self.original_stream.flush()
+    
+    def close(self):
+        self.file.close()
 
 try:
     # Redirect stdout to log file
     original_stdout = sys.stdout
     original_stderr = sys.stderr
     
-    # Open log files
-    log_f = open(log_file, "w")
-    error_f = open(error_file, "w")
+    # Open log files (overwriting previous ones)
+    log_f = FlushingFileWriter(log_file)
+    log_f.original_stream = original_stdout
+    
+    error_f = FlushingFileWriter(error_file)
+    error_f.original_stream = original_stderr
     
     # Redirect stdout and stderr
     sys.stdout = log_f
     sys.stderr = error_f
     
-    print(f"Starting optimization run for {base} {seat} at {timestamp}")
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"Starting optimization run for {base} {seat} at {current_time}")
     
     if seat in ['CA','FO','FA'] and base in ['DAL','BUR','LAS','SNA','OPF','SCF','OAK']: 
         if base == 'DAL':
@@ -57,6 +82,7 @@ try:
         print(f"Invalid base/seat combination: {base}/{seat}")
         with open(f"testing/{base}-{seat}-opt.txt", "w") as f:
             f.write('not actually running yet')
+            f.flush()
 
     print(f"Run completed successfully at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
@@ -68,6 +94,7 @@ except Exception as e:
     # Also write to status file
     with open(f"testing/{base}-{seat}-error.txt", "w") as f:
         f.write(f"Error: {str(e)}")
+        f.flush()
 
 finally:
     # Restore stdout and stderr
@@ -82,5 +109,6 @@ finally:
     # Update status file
     with open(f"testing/{base}-{seat}.txt", "w") as f:
         f.write("finished")
+        f.flush()
     
     print(f"Logs saved to {log_file} and {error_file}")

@@ -20,35 +20,39 @@ def analyze_run(base: str, seat: str):
     
     def log(message):
         """Helper function to both print and write to file"""
-        print(message)
+        print(message, flush=True)
         with open(output_file, 'a') as f:
             f.write(str(message) + '\n')
+            f.flush()
     
     def log_line(message):
         """Helper function to both print and write to file"""
-        print(message)
+        print(message, flush=True)
         with open(output_file_line, 'a') as f:
             f.write(str(message) + '\n')
+            f.flush()
 
     try:
-        print(f"Loading crew records from {seat}_crew_records.csv")
+        print(f"Loading crew records from {seat}_crew_records.csv", flush=True)
         od = pd.read_csv(f'{seat}_crew_records.csv')
-        print(f"Loaded {len(od)} crew records")
+        print(f"Loaded {len(od)} crew records", flush=True)
         
         with open(output_file, 'w') as f:
             f.write(f'Analysis Run: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n')
             f.write(f'Base: {base}, Seat: {seat}\n\n')
+            f.flush()
         
         with open(output_file_line, 'w') as f:
             f.write(f'Analysis Run: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n')
             f.write(f'Base: {base}, Seat: {seat}\n\n')
+            f.flush()
         
-        print(f"Loading selpair_setup_{seat}.csv and xpv{base}.csv")
+        print(f"Loading selpair_setup_{seat}.csv and xpv{base}.csv", flush=True)
         trassd = {}
         mar = pd.read_csv(f'selpair_setup_{seat}.csv')
         xpv = pd.read_csv(f'xpv{base}.csv')
         prefs = pd.read_csv(f'bid_dat_test.csv')
-        print(f"Loaded all required data files")
+        print(f"Loaded all required data files", flush=True)
         
         # Map seat abbreviation to its full crew role name
         seat_full_mapping = {"CA": "captain", "FO": "first_officer", "FA": "flight_attendant"}
@@ -69,7 +73,7 @@ def analyze_run(base: str, seat: str):
             log("4. The crew members are also present in {seat}_crew_records.csv")
             return
         
-        print(f"Found {len(prefs)} crew members for analysis")
+        print(f"Found {len(prefs)} crew members for analysis", flush=True)
         names = prefs['user_name'].values
         log(f"Names: {names}")
         emails = prefs['user_email'].values
@@ -88,6 +92,7 @@ def analyze_run(base: str, seat: str):
                 trassd[emails[ind]].append(pair)
         with open(f'{base}_trassd_{seat}.json','w') as fp:
             json.dump(trassd, fp)
+            fp.flush()
         
         sum_npsd = 0
         sum_dbd = 0
@@ -113,12 +118,12 @@ def analyze_run(base: str, seat: str):
         log(f"Total DBD: {sum_dbd}")
 
     except Exception as e:
-        print(f"Error occurred during analysis: {e}")
+        print(f"Error occurred during analysis: {e}", flush=True)
         import traceback
         traceback.print_exc()
     finally:
         end_time = time.time()
-        print(f"Analysis completed in {end_time - start_time:.2f} seconds")
+        print(f"Analysis completed in {end_time - start_time:.2f} seconds", flush=True)
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:

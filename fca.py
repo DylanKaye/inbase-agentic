@@ -3,18 +3,19 @@ import numpy as np
 import time
 import pickle
 import pandas as pd
+import sys
 from datetime import datetime, timedelta
 from utils import get_date_range
 
 def fca(base, seat, d1, d2, seconds):
-    print(f"FCA optimization started for {base} {seat} from {d1} to {d2} with {seconds} seconds time limit")
-    print(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"FCA optimization started for {base} {seat} from {d1} to {d2} with {seconds} seconds time limit", flush=True)
+    print(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", flush=True)
     
     start_time = time.time()
     
     try:
         dalpair = pd.read_csv(f'selpair_setup_{seat}.csv')
-        print(f"Loaded selpair_setup_{seat}.csv with {len(dalpair)} rows")
+        print(f"Loaded selpair_setup_{seat}.csv with {len(dalpair)} rows", flush=True)
         
         if base == 'OPF':
             add = ['BCT']
@@ -22,11 +23,11 @@ def fca(base, seat, d1, d2, seconds):
             add = []
             
         inbasedat = pd.read_csv(f'{seat}_crew_records.csv')
-        print(f"Loaded {seat}_crew_records.csv with {len(inbasedat)} rows")
+        print(f"Loaded {seat}_crew_records.csv with {len(inbasedat)} rows", flush=True)
         
         inbasedat.index = inbasedat['name']
         inbasedat = inbasedat[(inbasedat['base']==base)|(inbasedat['to_base']==base)]
-        print(f"Filtered to {len(inbasedat)} crew members for base {base}")
+        print(f"Filtered to {len(inbasedat)} crew members for base {base}", flush=True)
 
         tot_days = []
         is_tdy = []
@@ -44,7 +45,7 @@ def fca(base, seat, d1, d2, seconds):
         inbasedat['is_tdy'] = is_tdy
 
         prefs = pd.read_csv(f'bid_dat_test.csv')
-        print(f"Loaded bid_dat_test.csv with {len(prefs)} rows")
+        print(f"Loaded bid_dat_test.csv with {len(prefs)} rows", flush=True)
         prefs = prefs[(prefs['user_name'].isin(inbasedat.index))].sort_values(by='user_seniority', ascending=False)
         prefs['crew_pbs_idx'] = list(range(len(prefs)))
         prefs.index = prefs['crew_pbs_idx']
@@ -151,8 +152,91 @@ def fca(base, seat, d1, d2, seconds):
                 disa2[str(v)] = []
             disa2[str(v)].append(k)
         constr_rest = []
+        rest_constraints = []
         for k,v in disa2.items():
             constr_rest.append(eval(k) + v)
+
+        # Add constraints for pairings with long duty times (over 11 hours)
+        long_duty_pairings = dalpair[dalpair['dtime'] > 11*3600]['dalidx'].values
+        print(f"Found {len(long_duty_pairings)} pairings with duty time > 11 hours", flush=True)
+
+        # For each long duty pairing, find other long duty pairings within 1 day
+        for idx in long_duty_pairings:
+            # Get the date of this pairing
+            pairing_date = dalpair.loc[dalpair['dalidx'] == idx, 'd1'].values[0]
+            pairing_date_dt = pd.to_datetime(pairing_date)
+            
+            # Find other long duty pairings within 1 day (before or after)
+            nearby_pairings = []
+            for other_idx in long_duty_pairings:
+                if other_idx == idx:
+                    continue
+                    
+                other_date = dalpair.loc[dalpair['dalidx'] == other_idx, 'd1'].values[0]
+                other_date_dt = pd.to_datetime(other_date)
+                
+                # Check if within 1 day
+                if abs((other_date_dt - pairing_date_dt).days) <= 1:
+                    nearby_pairings.append(other_idx)
+            
+            # If there are nearby long duty pairings, add constraint
+            if nearby_pairings:
+                constr_rest.append([idx] + nearby_pairings)
+
+        print(f"Added {len(constr_rest) - len(rest_constraints)} constraints for long duty pairings", flush=True)
+
+        # Add constraints for pairings with many legs (5 or more)
+        many_legs_pairings = dalpair[dalpair['mlegs'] >= 5]['dalidx'].values
+        print(f"Found {len(many_legs_pairings)} pairings with 5 or more legs", flush=True)
+
+        # For each many-legs pairing, find other many-legs pairings within 1 day
+        for idx in many_legs_pairings:
+            # Get the date of this pairing
+            pairing_date = dalpair.loc[dalpair['dalidx'] == idx, 'd1'].values[0]
+            pairing_date_dt = pd.to_datetime(pairing_date)
+            
+            # Find other many-legs pairings within 1 day (before or after)
+            nearby_pairings = []
+            for other_idx in many_legs_pairings:
+                if other_idx == idx:
+                    continue
+                    
+                other_date = dalpair.loc[dalpair['dalidx'] == other_idx, 'd1'].values[0]
+                other_date_dt = pd.to_datetime(other_date)
+                
+                # Check if within 1 day
+                if abs((other_date_dt - pairing_date_dt).days) <= 1:
+                    nearby_pairings.append(other_idx)
+            
+            # If there are nearby many-legs pairings, add constraint
+            if nearby_pairings:
+                constr_rest.append([idx] + nearby_pairings)
+
+        print(f"Added constraints for pairings with 5 or more legs", flush=True)
+
+        # Also add constraints for combinations of long duty and many legs
+        for idx in long_duty_pairings:
+            pairing_date = dalpair.loc[dalpair['dalidx'] == idx, 'd1'].values[0]
+            pairing_date_dt = pd.to_datetime(pairing_date)
+            
+            # Find many-legs pairings within 1 day
+            nearby_pairings = []
+            for other_idx in many_legs_pairings:
+                if other_idx == idx:  # Skip if same pairing (could be both long duty and many legs)
+                    continue
+                    
+                other_date = dalpair.loc[dalpair['dalidx'] == other_idx, 'd1'].values[0]
+                other_date_dt = pd.to_datetime(other_date)
+                
+                # Check if within 1 day
+                if abs((other_date_dt - pairing_date_dt).days) <= 1:
+                    nearby_pairings.append(other_idx)
+            
+            # If there are nearby many-legs pairings, add constraint
+            if nearby_pairings:
+                constr_rest.append([idx] + nearby_pairings)
+
+        print(f"Total fatigue-related constraints added: {len(constr_rest) - len(rest_constraints)}", flush=True)
 
         n_p = len(dalpair)
 
@@ -161,12 +245,14 @@ def fca(base, seat, d1, d2, seconds):
         
         pover = []
         for i in prefs['overnight_preference'].values:
-            if i == "Not Preferred":
+            if i == "None":
                 val = 1
             elif i == "Many":
                 val = 3
-            else:
+            elif i == "Some":
                 val = 2
+            else:
+                val = 4
             pover.append(val)
 
         prefs['pref_over'] = pover
@@ -236,27 +322,27 @@ def fca(base, seat, d1, d2, seconds):
                 vacation_counts[date] += 1
         
         # Print analysis comparing work days to available crew
-        print("\nDaily Work Assignment Analysis:")
-        print("Date\t\tWork Days\tCrew on Vac\tAvailable Crew\tDifference")
-        print("-" * 80)
+        print("\nDaily Work Assignment Analysis:", flush=True)
+        print("Date\t\tWork Days\tCrew on Vac\tAvailable Crew\tDifference", flush=True)
+        print("-" * 80, flush=True)
         all_dates = sorted(set(list(z.keys()) + list(vacation_counts.keys())))
         for date in all_dates:
             work_days = z.get(date, 0)
             crew_on_vac = vacation_counts.get(date, 0)
             available_crew = n_c - crew_on_vac
             difference = available_crew - work_days
-            print(f"{date}\t{work_days}\t\t{crew_on_vac}\t\t{available_crew}\t\t{difference}")
+            print(f"{date}\t{work_days}\t\t{crew_on_vac}\t\t{available_crew}\t\t{difference}", flush=True)
         
         # Print totals
         total_work = sum(z.values())
         total_vac_days = sum(vacation_counts.values())
-        print("\nSummary:")
-        print(f"Total crew members (n_c): {n_c}")
-        print(f"Total work days to assign: {total_work}")
-        print(f"Total vacation days: {total_vac_days}")
-        print(f"Average daily crew availability: {n_c - (total_vac_days/len(all_dates)):.1f}")
+        print("\nSummary:", flush=True)
+        print(f"Total crew members (n_c): {n_c}", flush=True)
+        print(f"Total work days to assign: {total_work}", flush=True)
+        print(f"Total vacation days: {total_vac_days}", flush=True)
+        print(f"Average daily crew availability: {n_c - (total_vac_days/len(all_dates)):.1f}", flush=True)
         
-        print(dalpair[['d1','d2','idx']])
+        print(dalpair[['d1','d2','idx']], flush=True)
         #exit(0)
 
         # pto = []
@@ -553,34 +639,97 @@ def fca(base, seat, d1, d2, seconds):
             pref = pref_over[c]
             if pref == 1:
                 idxs = single
+                constraints += [pover[c] == cp.sum(xp[c,idxs])]
             elif pref == 3:
                 idxs = multi
+                constraints += [pover[c] == cp.sum(xp[c,idxs])]
+            elif pref == 2:
+                # For "Some" preference: 
+                # - Get points for multi (overnight) pairings up to 3
+                # - Get points for single pairings after that
+                
+                # Create auxiliary variables for the capped multi count
+                multi_count = cp.sum(xp[c,multi])
+                single_count = cp.sum(xp[c,single])
+                
+                # Use binary variables to implement min(multi_count, 3)
+                has_multi = cp.Variable(4, boolean=True)  # has_multi[i] = 1 if multi_count >= i
+                
+                # Enforce ordering: has_multi[i] >= has_multi[i+1]
+                for i in range(3):
+                    constraints += [has_multi[i] >= has_multi[i+1]]
+                
+                # Connect has_multi to multi_count
+                constraints += [multi_count >= has_multi[0]]
+                for i in range(1, 4):
+                    constraints += [multi_count >= i*has_multi[i]]
+                    constraints += [multi_count <= i + 3*(1-has_multi[i])]
+                
+                # Calculate capped multi (0 to 3)
+                multi_capped = has_multi[0] + has_multi[1] + has_multi[2]
+                
+                # Calculate excess multi beyond 3
+                multi_excess = multi_count - multi_capped
+                
+                # Calculate effective single count (single count minus excess multi)
+                # We need to ensure this is non-negative
+                effective_single = cp.Variable(1)
+                constraints += [effective_single <= single_count]
+                constraints += [effective_single <= max_days[c] - multi_excess]  # Upper bound using max days
+                constraints += [effective_single >= 0]
+                
+                # Set pover to be the sum of capped multi and effective single
+                constraints += [pover[c] == multi_capped + effective_single]
             else:
                 constraints += [pover[c] == 0]
                 continue
-            constraints += [pover[c] == cp.sum(xp[c,idxs])]
         
         # houidxs = dalpair[(dalpair['mult']==2)&(dalpair['dtime']==9600)]['dalidx']
         # fav = 16
         # constraints += [cp.sum(xp[fav,houidxs]) == 3]
         # constraints += [cp.sum(xp[-1,houidxs])+cp.sum(xp[-2,houidxs])+cp.sum(xp[-4,houidxs]) == 6]
 
-        #timeofday
+        # Replace the existing time preference code with a distance-based approach
+        early_time = 7  # 7 AM
+        middle_time = 12  # 12 PM
+        late_time = 17  # 5 PM
+
+        # Calculate time distance penalties for each pairing
+        time_penalties = {}
+        time_penalties[1] = []  # Early preference
+        time_penalties[2] = []  # Middle preference
+        time_penalties[3] = []  # Late preference
+        
+        for idx, hour in enumerate(dalpair['shour'].values):
+            # Calculate distance from each preferred time
+            early_dist = abs(hour - early_time)
+            middle_dist = abs(hour - middle_time)
+            late_dist = abs(hour - late_time)
+            
+            # Store penalties for each preference type
+            time_penalties[1].append(early_dist)
+            time_penalties[2].append(middle_dist)
+            time_penalties[3].append(late_dist)
+        
+        # Convert to numpy arrays for efficient computation
+        for pref in time_penalties:
+            time_penalties[pref] = np.array(time_penalties[pref])
+        
+        print(f"Time penalties calculated based on distance from preferred times", flush=True)
+        
+        # Replace the existing timeofday constraint
         for c in range(n_c):
             pref = pref_time[c]
-            if pref == 1:
-                idxs = early_idx
-                constraints += [ptime[c] == 2*cp.sum(xp[c,idxs]) + cp.sum(xp[c,middle_idx])]
-            elif pref == 2:
-                idxs = middle_idx
-                constraints += [ptime[c] == 2*cp.sum(xp[c,idxs])]
-            elif pref == 3:
-                idxs = late_idx
-                constraints += [ptime[c] == 2*cp.sum(xp[c,idxs]) + cp.sum(xp[c,middle_idx])]
+            if pref in [1, 2, 3]:  # Early, Middle, Late
+                # Calculate total penalty as the sum of distances from preferred time
+                # Lower penalty is better, so we negate it for maximization
+                penalty = cp.sum(cp.multiply(time_penalties[pref], xp[c]))
+                constraints += [ptime[c] == -penalty]
             else:
+                # No preference
                 constraints += [ptime[c] == 0]
                 continue
-            
+
         #reserves
         if len(r_idxs) > 0:
             for c in range(n_c):
@@ -614,9 +763,6 @@ def fca(base, seat, d1, d2, seconds):
                     constraints += [pcha[c] == 0]
 
         #rest time
-        print(constr_rest)
-        print(dalpair[dalpair['idx'].isin(['60699','60712'])])
-        print([i for i in constr_rest if 62 in i])
         rest_constraints = []
         for idxs in constr_rest:
             idxs_arr = np.array(idxs)
@@ -664,20 +810,17 @@ def fca(base, seat, d1, d2, seconds):
         else:
             char_val = 0
         objective = cp.Maximize(.3*cp.sum(cdos) - .3*cp.sum(chnk) + 3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + .2*cp.sum(cp.multiply(ptime,sen)) + 1.5*res_val + char_val)
-        #objective = cp.Maximize(3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + .2*cp.sum(cp.multiply(ptime,sen)) + 4*cp.sum(ppto) + 1.5*res_val + char_val)
         #objective = cp.Maximize(3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + .3*cp.sum(cp.multiply(ptime,sen)) + 4*cp.sum(ppto) + 1.5*res_val + char_val)
         #objective = cp.Maximize(1.5*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + cp.sum(cp.multiply(ptime,sen)) + 3*cp.sum(ppto) + 1.1*res_val + char_val)
-
-
         #objective = cp.Maximize(cp.sum(po) + cp.sum(pover) + cp.sum(ptime) + cp.sum(ppto) + cp.sum(cp.minimum(pres, np.ones(n_c)*3)) - cp.max(over))
         #objective = cp.Maximize(cp.sum(po) + cp.sum(pover) + cp.sum(ptime) + cp.sum(ppto) + cp.sum(cp.minimum(pres, np.ones(n_c)*3)))# - cp.max(over) + cp.min(over))# + cp.sum(ppto))
         #objective = cp.Minimize(0)
 
         prob = cp.Problem(objective, constraints)
         #.solve(verbose=True)
-        print(f"Starting optimization solver at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"Problem has {len(constraints)} constraints")
-        print(f"Using CBC solver with {seconds} seconds time limit")
+        print(f"Starting optimization solver at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", flush=True)
+        print(f"Problem has {len(constraints)} constraints", flush=True)
+        print(f"Using CBC solver with {seconds} seconds time limit", flush=True)
         
         solve_start_time = time.time()
         prob.solve(solver='CBC', 
@@ -688,17 +831,18 @@ def fca(base, seat, d1, d2, seconds):
         solve_end_time = time.time()
         solve_elapsed = solve_end_time - solve_start_time
         
-        print(f"Solver completed in {solve_elapsed:.2f} seconds with status: {prob.status}")
+        print(f"Solver completed in {solve_elapsed:.2f} seconds with status: {prob.status}", flush=True)
         #prob.solve(solver=cp.SCIPY, scipy_options={"method": "highs"}, verbose=True)
         # prob.solve(solver='CBC', numberThreads=2, verbose=True, maximumSeconds=60)
         # prob.solve(solver=cp.SCIPY, scipy_options={'verbose': True})
 
-        print(f"Saving results to files")
+        print(f"Saving results to files", flush=True)
         xpv = xp.value
         xpv_df = pd.DataFrame(xpv)
         xpv_df.to_csv(f'xpv{base}.csv',index=False)
         with open(f"{base}.txt", "w") as text_file:
             print(f"Status: {prob.status}", file=text_file)
+            text_file.flush()
         satd = {}
         satd['po'] = po.value
         # satd['cdos'] = cdos.value
@@ -712,7 +856,8 @@ def fca(base, seat, d1, d2, seconds):
             satd['char'] = pcha.value
         with open(f'satd_{base}{seat}.pkl','wb') as fp:
             pickle.dump(satd, fp)
-        print(f"Results saved successfully")
+            fp.flush()
+        print(f"Results saved successfully", flush=True)
         # print(np.sum(po.value), np.sum(pover.value), np.sum(ptime.value), np.sum(ppto.value))
         # print(chnk.value)
         # print(cdos.value)
@@ -726,10 +871,12 @@ def fca(base, seat, d1, d2, seconds):
 
         end_time = time.time()
         elapsed_time = end_time - start_time
-        print(f"FCA optimization completed in {elapsed_time:.2f} seconds")
+        print(f"FCA optimization completed in {elapsed_time:.2f} seconds", flush=True)
         return satd
     except Exception as e:
-        print(f"Error in fca: {e}")
+        print(f"Error in fca: {e}", flush=True)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
         return None
 
 # for base in ['BUR','DAL','HOU','LAS','MCO','OAK','OPF','SCF','SNA']:
