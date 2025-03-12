@@ -275,9 +275,9 @@ def fca(base, seat, d1, d2, seconds):
 
         res_pref = []
         for i in prefs['reserve_preference'].values:
-            if i == "Preferred":
+            if i == "Yes":
                 val = 1
-            elif i == "Not Preferred":
+            elif i == "No":
                 val = 0
             else:
                 val = 2
@@ -363,14 +363,6 @@ def fca(base, seat, d1, d2, seconds):
         #     if base == 'BUR' or base == 'SNA':
         #         squal_duties = dalpair[dalpair['rnoq']==True]['dalidx'].values
         #         squal_caps = np.argwhere(['R' in [j for j in eval(i)] for i in prefs['user_special_roles']])
-
-        early = [5,6,7,8]
-        middle = [9,10,11,12]
-        late = [13,14,15,16,17,18,19]
-
-        early_idx = dalpair[(dalpair['shour'].isin(early))&(dalpair['mult']==1)]['dalidx']
-        middle_idx = dalpair[(dalpair['shour'].isin(middle))&(dalpair['mult']==1)]['dalidx']
-        late_idx = dalpair[(dalpair['shour'].isin(late))&(dalpair['mult']==1)]['dalidx']
 
         rowl = []
         for row1, row2 in zip(dalpair['dtime'].values, dalpair['mlegs'].values):
@@ -798,7 +790,7 @@ def fca(base, seat, d1, d2, seconds):
             elif base == 'SCF' or base == 'SNA':
                 constraints += [overage <= 8]
                 continue
-            constraints += [overage <= 6] 
+            constraints += [overage <= 5] 
 
         sen = (prefs.index + 1) / len(prefs)
         if len(r_idxs) > 0:

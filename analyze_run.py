@@ -99,23 +99,24 @@ def analyze_run(base: str, seat: str):
         for k,v in enumerate(trassd.values()):
             log(f"\nAnalyzing {names[k]}")
             log_line(f"\nFor {names[k]}")
-            days = mar[mar['idx'].isin(v)][['d1','d2','idx','mult']].sort_values(by='d1').values
+            days = mar[mar['idx'].isin(v)][['d1','d2','idx','mult','shour']].sort_values(by='d1').values
             dbd = od[od['name']==names[k]]['non_tdy_days_worked'].values[0]
             npsd = np.sum(days[:,-1])
-            log(f"Days worked - NPSD: {npsd}, DBD: {dbd}")
+            log(f"Days worked - Duties Assigned: {npsd}, Duties to Assign: {dbd}")
             sum_npsd += npsd
             sum_dbd += dbd
             log(f"Overnight preference: {prefs['overnight_preference'].iloc[k]}")
             log(f"Reserve preference: {prefs['reserve_preference'].iloc[k]}")
-            log(f"Special roles: {prefs['user_special_roles'].iloc[k]}")
+            log(f"Time Period Preference: {prefs['time_period_preference'].iloc[k]}")
+            log(f"Duty Time: {prefs['dtime'].iloc[k]/3600}")
             log(f"Days: {sorted(np.unique(days[:,0].tolist() + days[:,1].tolist()))}")
 
             for row in days:
                 log_line(f'{row[0]}, {row[1]}, {row[2]}, {row[3]}')
 
         log(f"\nSummary:")
-        log(f"Total NPSD: {sum_npsd}")
-        log(f"Total DBD: {sum_dbd}")
+        log(f"Duties Assigned: {sum_npsd}")
+        log(f"Duties to Assign: {sum_dbd}")
 
     except Exception as e:
         print(f"Error occurred during analysis: {e}", flush=True)
