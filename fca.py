@@ -6,7 +6,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 def fca(base, seat, d1, d2, seconds):
-    dalpair = pd.read_csv(f'selpair_setup.csv')
+    dalpair = pd.read_csv(f'selpair_setup_{seat}.csv')
     if base == 'OPF':
         add = ['BCT']
     else:

@@ -28,7 +28,7 @@ names = prefs[prefs['user_base']==base].sort_values(by='user_seniority', ascendi
 cidlist = prefs[prefs['user_base']==base].sort_values(by='user_seniority', ascending=False)['user_noc_id'].values
 xmlsetr = []
 xmlsetr.append('<Crews>')
-dalpair = pd.read_csv(f'selpair_setup.csv')
+dalpair = pd.read_csv(f'selpair_setup_{seat}.csv')
 dalpair = dalpair[dalpair['base_start']==base].reset_index(drop=True)
 for ind, row in enumerate(xpv.values):
     #nme = names[ind]
@@ -93,7 +93,7 @@ print(xmlsetr)
 
 boff = 7
 baseoffs = 7
-dalpair = pd.read_csv(f'selpair_setup.csv')
+dalpair = pd.read_csv(f'selpair_setup_{seat}.csv')
 dalpair = dalpair[dalpair['base_start']==base].reset_index(drop=True)
 cidlist = prefs[prefs['user_base']==base].sort_values(by='user_seniority', ascending=False)['user_noc_id'].values
 xmlsetr = []

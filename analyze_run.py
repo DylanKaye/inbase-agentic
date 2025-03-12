@@ -84,7 +84,7 @@ def analyze_run(base: str, seat: str):
     #         print(i)
         
     trassd = {}
-    mar = pd.read_csv(f'selpair_setup.csv')
+    mar = pd.read_csv(f'selpair_setup_{seat}.csv')
     xpv = pd.read_csv(f'xpv{base}.csv')
     prefs = pd.read_csv(f'bid_dat_test.csv')
     # Map seat abbreviation to its full crew role name

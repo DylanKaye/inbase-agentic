@@ -49,7 +49,7 @@ for base, ddict in resfa.items():
 for r in res_list:
     selpairs.loc[len(selpairs.index)] = r
     
-selpairs.to_csv(f'selpair_setup.csv',index=False)
+selpairs.to_csv(f'selpair_setup_{seat}.csv',index=False)
 
 spg = selpairs.groupby('base_start')['mult'].sum()
 print(spg)
