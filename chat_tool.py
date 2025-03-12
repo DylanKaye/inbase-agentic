@@ -6,6 +6,7 @@ import os
 from datetime import datetime
 from typing import Dict
 import warnings
+from utils import get_date_range
 warnings.filterwarnings("ignore")
 # Track running optimizations
 running_optimizations: Dict[str, asyncio.subprocess.Process] = {}

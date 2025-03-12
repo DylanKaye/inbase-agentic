@@ -3,12 +3,17 @@ import pandas as pd
 import numpy as np
 import json
 import requests
+from utils import get_date_range
 
 base = argv[1]
 seat = argv[2]
 
-d1 = '2025-03-01'
-d2 = '2025-04-02'
+# Replace hardcoded dates like:
+# upload_date_start = "2025-03-01"
+# upload_date_end = "2025-03-31"
+
+# With:
+upload_date_start, upload_date_end = get_date_range()
 
 od = pd.read_csv(f'{seat}_crew_records.csv')
 prefs = pd.read_csv(f'bid_dat_test.csv')
@@ -70,8 +75,8 @@ payload = f"""<?xml version="1.0" encoding="utf-8"?>
         <Username>dylan.kaye</Username>
         <Password>superP@rrot13</Password>
         <SetRostersFilter>
-        <From>{d1}T05:30:00</From>
-        <To>{d2}T00:00:00</To>
+        <From>{upload_date_start}T05:30:00</From>
+        <To>{upload_date_end}T00:00:00</To>
         <RemoveCarryInActivities>false</RemoveCarryInActivities>
         <RemoveCarryOutActivities>false</RemoveCarryOutActivities>
         </SetRostersFilter>\n""" + '\n'.join(xmlsetr) +\
@@ -137,8 +142,8 @@ payload = f"""<?xml version="1.0" encoding="utf-8"?>
         <Username>dylan.kaye</Username>
         <Password>superP@rrot13</Password>
         <SetRostersFilter>
-        <From>{d1}T05:30:00</From>
-        <To>{d2}T00:00:00</To>
+        <From>{upload_date_start}T05:30:00</From>
+        <To>{upload_date_end}T00:00:00</To>
         <RemoveCarryInActivities>false</RemoveCarryInActivities>
         <RemoveCarryOutActivities>false</RemoveCarryOutActivities>
         </SetRostersFilter>\n""" + '\n'.join(xmlsetr) +\
