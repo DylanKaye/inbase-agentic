@@ -28,7 +28,7 @@ def analyze_run(base: str, seat: str):
     def log_line(message):
         """Helper function to both print and write to file"""
         print(message, flush=True)
-        with open(output_file_line, 'a') as f:
+        with open(output_file, 'a') as f:
             f.write(str(message) + '\n')
             f.flush()
 
@@ -108,7 +108,7 @@ def analyze_run(base: str, seat: str):
             log(f"Overnight preference: {prefs['overnight_preference'].iloc[k]}")
             log(f"Reserve preference: {prefs['reserve_preference'].iloc[k]}")
             log(f"Time Period Preference: {prefs['time_period_preference'].iloc[k]}")
-            log(f"Days: {sorted(np.unique(days[:,0].tolist() + days[:,1].tolist()))}")
+            # log(f"Days: {sorted(np.unique(days[:,0].tolist() + days[:,1].tolist()))}")
 
             for row in days:
                 log_line(f'{row[0]}, {row[1]}, {row[2]}, {row[3]}, {row[4]}')
