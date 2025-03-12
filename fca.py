@@ -4,8 +4,9 @@ import time
 import pickle
 import pandas as pd
 import sys
+import os
 from datetime import datetime, timedelta
-from utils import get_date_range
+from utils import get_date_range, capture_c_stdout
 
 def fca(base, seat, d1, d2, seconds):
     print(f"FCA optimization started for {base} {seat} from {d1} to {d2} with {seconds} seconds time limit", flush=True)
@@ -823,11 +824,20 @@ def fca(base, seat, d1, d2, seconds):
         print(f"Using CBC solver with {seconds} seconds time limit", flush=True)
         
         solve_start_time = time.time()
-        prob.solve(solver='CBC', 
-                  numberThreads=24, 
-                  verbose=True, 
-                  maximumSeconds=seconds,
-                  allowableGap=0.01)  # Accept solutions within 1% of optimal
+        
+        # Ensure all output is flushed before solver starts
+        sys.stdout.flush()
+        sys.stderr.flush()
+        
+        # Use the capture_c_stdout context manager to capture CBC solver output
+        with capture_c_stdout(output_file=sys.stdout):
+            # Run the solver - this will print directly to stdout
+            prob.solve(solver='CBC', 
+                      numberThreads=24, 
+                      verbose=True, 
+                      maximumSeconds=seconds,
+                      allowableGap=0.01)  # Accept solutions within 1% of optimal
+        
         solve_end_time = time.time()
         solve_elapsed = solve_end_time - solve_start_time
         
