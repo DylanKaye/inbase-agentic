@@ -713,50 +713,63 @@ def fca(base, seat, d1, d2, seconds):
         for c in range(n_c):
             pref = pref_time[c]
             if pref not in [1, 2, 3]:  # No time preference
-                time_bonuses[c] = np.zeros(n_p, dtype=int)
-                continue
+                # Initialize with zeros but don't skip - we'll still apply reserve/overnight bonuses
+                bonuses = np.zeros(n_p, dtype=int)
+            else:
+                # Choose reference time based on preference
+                if pref == 1:  # Early
+                    ref_time = early_time
+                elif pref == 2:  # Middle
+                    ref_time = middle_time
+                else:  # Late
+                    ref_time = late_time
                 
-            # Choose reference time based on preference
-            if pref == 1:  # Early
-                ref_time = early_time
-            elif pref == 2:  # Middle
-                ref_time = middle_time
-            else:  # Late
-                ref_time = late_time
+                # Calculate raw distances
+                distances = np.abs(dalpair['shour'].values - ref_time)
+                
+                # Convert distances to integer bonuses (closer = higher bonus)
+                bonuses = np.round(10 * (1 - distances / max_time_distance)).astype(int)
             
-            # Calculate raw distances
-            distances = np.abs(dalpair['shour'].values - ref_time)
+            # Apply modifications for reserves and overnights for ALL crew members
+            # regardless of whether they have a time preference
             
-            # Convert distances to integer bonuses (closer = higher bonus)
-            # Normalize to 0-10 range where 10 is perfect match and 0 is furthest possible
-            # Round to nearest integer to ensure all values are integers
-            bonuses = np.round(10 * (1 - distances / max_time_distance)).astype(int)
-            
-            # Apply modifications for reserves and overnights ONLY if crew prefers them
+            # Reserve bonuses for those who prefer reserves
             if len(r_idxs) > 0 and pref_reserves[c] == 1:  # Prefers reserves
                 # Boost reserve bonuses
                 for idx in r_idxs:
-                    bonuses[idx] = 4  # Maximum bonus for preferred reserves
+                    bonuses[idx] = 4  # Bonus for preferred reserves
             
             # Create a copy of the boolean mask to avoid modifying original data
             is_overnight = dalpair['mult'].values > 1
             
+            # Apply overnight bonuses/penalties based on preference
             if pref_over[c] == 3:  # Prefers many overnights
-                # Boost overnight bonuses - ensure result is integer
-                temp_bonuses = bonuses.copy()
-                # Apply multiplication first, then convert to integer (rounding down)
-                temp_bonuses[is_overnight] = np.floor(temp_bonuses[is_overnight] * 1.5).astype(int)
-                bonuses = np.minimum(temp_bonuses, 10)  # Cap at 10
+                # For crew with no time preference, assign a flat bonus
+                if pref not in [1, 2, 3]:
+                    bonuses[is_overnight] = 3  # Static bonus for preferred overnights
+                else:
+                    # For crew with time preference, boost existing values
+                    temp_bonuses = bonuses.copy()
+                    temp_bonuses[is_overnight] = np.floor(temp_bonuses[is_overnight] * 1.5).astype(int)
+                    bonuses = np.minimum(temp_bonuses, 10)  # Cap at 10
+                    
             elif pref_over[c] == 2:  # Prefers some overnights
-                # Slight boost for overnight bonuses - ensure result is integer
-                temp_bonuses = bonuses.copy()
-                temp_bonuses[is_overnight] = np.floor(temp_bonuses[is_overnight] * 1.2).astype(int)
-                bonuses = np.minimum(temp_bonuses, 10)  # Cap at 10
+                # For crew with no time preference, assign a smaller flat bonus
+                if pref not in [1, 2, 3]:
+                    bonuses[is_overnight] = 2  # Static bonus for some overnights
+                else:
+                    # For crew with time preference, apply smaller boost
+                    temp_bonuses = bonuses.copy()
+                    temp_bonuses[is_overnight] = np.floor(temp_bonuses[is_overnight] * 1).astype(int)
+                    bonuses = np.minimum(temp_bonuses, 10)  # Cap at 10
+                    
             elif pref_over[c] == 1:  # No overnights
-                # Reduce overnight bonuses - ensure result is integer
-                temp_bonuses = bonuses.copy()
-                temp_bonuses[is_overnight] = np.floor(temp_bonuses[is_overnight] * 0.8).astype(int)
-                bonuses = temp_bonuses
+                # No need to add penalties for crew with no time preference - zeros stay zeros
+                if pref in [1, 2, 3]:
+                    # Only reduce for crew with time preference
+                    temp_bonuses = bonuses.copy()
+                    temp_bonuses[is_overnight] = np.floor(temp_bonuses[is_overnight] * 0.3).astype(int)
+                    bonuses = temp_bonuses
             
             time_bonuses[c] = bonuses
             
