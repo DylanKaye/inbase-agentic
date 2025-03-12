@@ -6,13 +6,13 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 def fca(base, seat, d1, d2, seconds):
-    dalpair = pd.read_csv(f'selpair_setup_{seat}_dec.csv')
+    dalpair = pd.read_csv(f'selpair_setup.csv')
     if base == 'OPF':
         add = ['BCT']
     else:
         add = []
         
-    inbasedat = pd.read_csv(f'tdy_opt_dat_fin_{seat}.csv')
+    inbasedat = pd.read_csv(f'{seat}_crew_records.csv')
     inbasedat.index = inbasedat['name']
     inbasedat = inbasedat[(inbasedat['base']==base)|(inbasedat['to_base']==base)]
 
@@ -31,7 +31,7 @@ def fca(base, seat, d1, d2, seconds):
     inbasedat['tot_days'] = tot_days
     inbasedat['is_tdy'] = is_tdy
 
-    prefs = pd.read_csv(f'bid_dat_test_{seat}.csv')
+    prefs = pd.read_csv(f'bid_dat_test.csv')
     prefs = prefs[(prefs['user_name'].isin(inbasedat.index))].sort_values(by='user_seniority', ascending=False)
     prefs['crew_pbs_idx'] = list(range(len(prefs)))
     prefs.index = prefs['crew_pbs_idx']

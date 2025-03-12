@@ -9,7 +9,7 @@ def analyze_run(base: str, seat: str):
     # Keep seat as the original input (CA/FO/FA)
     seat = seat.upper()
 
-    od = pd.read_csv(f'tdy_opt_dat_fin_{seat}.csv')
+    od = pd.read_csv(f'{seat}_crew_records.csv')
 
     with open('crew_id_map.json','r') as fp:
         crew_id_map = json.load(fp)
@@ -84,9 +84,9 @@ def analyze_run(base: str, seat: str):
     #         print(i)
         
     trassd = {}
-    mar = pd.read_csv(f'selpair_setup_{seat}_dec.csv')
+    mar = pd.read_csv(f'selpair_setup.csv')
     xpv = pd.read_csv(f'xpv{base}.csv')
-    prefs = pd.read_csv(f'bid_dat_test_{seat}.csv')
+    prefs = pd.read_csv(f'bid_dat_test.csv')
     # Map seat abbreviation to its full crew role name
     seat_full_mapping = {"CA": "captain", "FO": "first_officer", "FA": "flight_attendant"}
     seat_full = seat_full_mapping.get(seat, seat)
@@ -102,8 +102,8 @@ def analyze_run(base: str, seat: str):
         log("\nPlease verify:")
         log("1. The base code is correct")
         log("2. The seat code is correct")
-        log("3. There are crew members in bid_dat_test_{seat}.csv for this base/seat")
-        log("4. The crew members are also present in tdy_opt_dat_fin_{seat}.csv")
+        log("3. There are crew members in bid_dat_test.csv for this base/seat")
+        log("4. The crew members are also present in {seat}_crew_records.csv")
         return
     
     names = prefs['user_name'].values

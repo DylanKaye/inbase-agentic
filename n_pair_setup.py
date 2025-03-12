@@ -13,8 +13,8 @@ seat = 'CA'
 
 selpairs = pd.read_csv(f'pairing_file_mar.csv')
 
-bdt = pd.read_csv(f'tdy_opt_dat_fin_{seat}.csv')
-bdt[bdt['non tdy days worked']!=0].to_csv(f'tdy_opt_dat_fin_{seat}.csv',index=False)
+bdt = pd.read_csv(f'{seat}_crew_records.csv')
+bdt[bdt['non tdy days worked']!=0].to_csv(f'{seat}_crew_records.csv',index=False)
 
 selpairs['chart'] = [True if i.startswith('C') else False for i in selpairs['name'].values]
 selpairs = selpairs[~((selpairs['base_start'] == 'SNA') & (selpairs['chart'] == True))]
@@ -49,7 +49,7 @@ for base, ddict in resfa.items():
 for r in res_list:
     selpairs.loc[len(selpairs.index)] = r
     
-selpairs.to_csv(f'selpair_setup_{seat}_dec.csv',index=False)
+selpairs.to_csv(f'selpair_setup.csv',index=False)
 
 spg = selpairs.groupby('base_start')['mult'].sum()
 print(spg)
