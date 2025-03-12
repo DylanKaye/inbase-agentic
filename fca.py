@@ -6,7 +6,7 @@ import pandas as pd
 import sys
 import os
 from datetime import datetime, timedelta
-from utils import get_date_range, capture_c_stdout
+from utils import get_date_range, capture_solver_output
 
 def fca(base, seat, d1, d2, seconds):
     print(f"FCA optimization started for {base} {seat} from {d1} to {d2} with {seconds} seconds time limit", flush=True)
@@ -813,7 +813,6 @@ def fca(base, seat, d1, d2, seconds):
         objective = cp.Maximize(.3*cp.sum(cdos) - .3*cp.sum(chnk) + 3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + .2*cp.sum(cp.multiply(ptime,sen)) + 1.5*res_val + char_val)
         #objective = cp.Maximize(3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + .3*cp.sum(cp.multiply(ptime,sen)) + 4*cp.sum(ppto) + 1.5*res_val + char_val)
         #objective = cp.Maximize(1.5*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + cp.sum(cp.multiply(ptime,sen)) + 3*cp.sum(ppto) + 1.1*res_val + char_val)
-        #objective = cp.Maximize(cp.sum(po) + cp.sum(pover) + cp.sum(ptime) + cp.sum(ppto) + cp.sum(cp.minimum(pres, np.ones(n_c)*3)) - cp.max(over))
         #objective = cp.Maximize(cp.sum(po) + cp.sum(pover) + cp.sum(ptime) + cp.sum(ppto) + cp.sum(cp.minimum(pres, np.ones(n_c)*3)))# - cp.max(over) + cp.min(over))# + cp.sum(ppto))
         #objective = cp.Minimize(0)
 
@@ -829,14 +828,16 @@ def fca(base, seat, d1, d2, seconds):
         sys.stdout.flush()
         sys.stderr.flush()
         
-        # Use the capture_c_stdout context manager to capture CBC solver output
-        with capture_c_stdout(output_file=sys.stdout):
-            # Run the solver - this will print directly to stdout
-            prob.solve(solver='CBC', 
-                      numberThreads=24, 
-                      verbose=True, 
-                      maximumSeconds=seconds,
-                      allowableGap=0.01)  # Accept solutions within 1% of optimal
+        # Use the capture_solver_output function to capture CBC solver output
+        def run_solver():
+            return prob.solve(solver='CBC', 
+                             numberThreads=24, 
+                             verbose=True, 
+                             maximumSeconds=seconds,
+                             allowableGap=0.01)  # Accept solutions within 1% of optimal
+        
+        # Run the solver with output capture
+        capture_solver_output(run_solver, output_file=sys.stdout)
         
         solve_end_time = time.time()
         solve_elapsed = solve_end_time - solve_start_time

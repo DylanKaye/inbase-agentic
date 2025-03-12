@@ -6,6 +6,7 @@ import sys
 import io
 import ctypes
 import tempfile
+import subprocess
 from datetime import datetime, timedelta
 from contextlib import contextmanager
 
@@ -50,11 +51,72 @@ def get_date_range():
     """
     return "2025-03-01", "2025-03-31"
 
+def capture_solver_output(solver_command, output_file=None, tee=True):
+    """
+    A simpler approach to capture solver output using string buffers
+    
+    Args:
+        solver_command: A function that runs the solver
+        output_file: File object to write captured output to
+        tee: If True, also write to original stdout
+    
+    Returns:
+        The result of the solver_command function
+    """
+    # Create a string buffer to capture output
+    buffer = io.StringIO()
+    
+    # Save original stdout
+    original_stdout = sys.stdout
+    
+    try:
+        # Redirect stdout to our buffer
+        sys.stdout = buffer if not tee else TeeStringIO(buffer, original_stdout)
+        
+        # Run the solver command
+        result = solver_command()
+        
+        return result
+    finally:
+        # Restore original stdout
+        sys.stdout = original_stdout
+        
+        # Get the captured output
+        captured_output = buffer.getvalue()
+        
+        # Write to the output file if provided
+        if output_file:
+            output_file.write(captured_output)
+            output_file.flush()
+        
+        # Close the buffer
+        buffer.close()
+
+class TeeStringIO(io.StringIO):
+    """StringIO that also writes to another stream"""
+    def __init__(self, buffer, original=None):
+        super().__init__()
+        self.buffer = buffer
+        self.original = original
+    
+    def write(self, text):
+        self.buffer.write(text)
+        if self.original:
+            self.original.write(text)
+        return len(text)
+    
+    def flush(self):
+        self.buffer.flush()
+        if self.original:
+            self.original.flush()
+
 @contextmanager
 def capture_c_stdout(output_file=None, tee=True):
     """
     Capture stdout from C/C++ libraries (like CBC solver) that write directly to 
     the file descriptors rather than using Python's print function.
+    
+    This version uses a temporary file approach that's more robust.
     
     Args:
         output_file: File object to write captured output to
@@ -64,22 +126,24 @@ def capture_c_stdout(output_file=None, tee=True):
         None
     """
     # Create a temporary file to capture output
-    temp_fd, temp_path = tempfile.mkstemp()
+    temp_file = tempfile.NamedTemporaryFile(mode='w+', delete=False)
+    temp_path = temp_file.name
+    temp_file.close()
     
-    # Save original stdout file descriptor
-    original_stdout_fd = os.dup(sys.stdout.fileno())
-    
-    # Redirect stdout to our temporary file
-    os.dup2(temp_fd, sys.stdout.fileno())
+    # Save original stdout
+    original_stdout = sys.stdout
     
     try:
-        # Yield control back to the caller
-        yield
+        # Open the temp file for writing
+        with open(temp_path, 'w') as f:
+            # Redirect stdout to our temporary file
+            sys.stdout = f if not tee else TeeWriter(f, original_stdout)
+            
+            # Yield control back to the caller
+            yield
     finally:
         # Restore original stdout
-        os.dup2(original_stdout_fd, sys.stdout.fileno())
-        os.close(original_stdout_fd)
-        os.close(temp_fd)
+        sys.stdout = original_stdout
         
         # Read the captured output
         with open(temp_path, 'r') as f:
@@ -90,13 +154,30 @@ def capture_c_stdout(output_file=None, tee=True):
             output_file.write(captured_output)
             output_file.flush()
         
-        # Also write to original stdout if tee is True
-        if tee:
-            sys.__stdout__.write(captured_output)
-            sys.__stdout__.flush()
-        
         # Clean up the temporary file
-        os.unlink(temp_path)
+        try:
+            os.unlink(temp_path)
+        except:
+            pass
+
+class TeeWriter:
+    """Writer that writes to a file and optionally to another stream"""
+    def __init__(self, file, original=None):
+        self.file = file
+        self.original = original
+    
+    def write(self, text):
+        self.file.write(text)
+        self.file.flush()
+        if self.original:
+            self.original.write(text)
+            self.original.flush()
+        return len(text)
+    
+    def flush(self):
+        self.file.flush()
+        if self.original:
+            self.original.flush()
 
 class OutputCapture:
     """
