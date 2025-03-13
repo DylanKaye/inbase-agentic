@@ -726,7 +726,7 @@ def fca(base, seat, d1, d2, seconds):
                 distances = np.abs(dalpair['shour'].values - ref_time)
                 
                 # Convert distances to integer bonuses (closer = higher bonus)
-                bonuses = np.round(12 * (1 - distances / max_time_distance)).astype(int)
+                bonuses = np.round(20 * (1 - distances / max_time_distance)).astype(int)
             
             # Apply modifications for reserves and overnights for ALL crew members
             # regardless of whether they have a time preference
