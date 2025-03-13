@@ -646,7 +646,7 @@ def fca(base, seat, d1, d2, seconds):
             pref = pref_over[c]
             if pref == 1:  # No overnights
                 idxs = single
-                constraints += [pover[c] == cp.sum(xp[c,idxs])]
+                constraints += [pover[c] == 2*cp.sum(xp[c,idxs])]
             elif pref == 3:  # Many overnights
                 idxs = multi
                 constraints += [pover[c] == cp.sum(xp[c,idxs])]
