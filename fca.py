@@ -687,9 +687,33 @@ def fca(base, seat, d1, d2, seconds):
                 
                 # Set pover to be the sum of capped multi and effective single
                 constraints += [pover[c] == multi_capped + effective_single]
-            else:
-                constraints += [pover[c] == 0]
-                continue
+            elif pref == 1:  # No overnights - should be strongly penalized
+                # Apply strong negative values for overnights for all crew members who don't want them
+                # This should override any time preference bonus they might get
+                
+                # For crew with no time preference, assign a strong negative value
+                if pref not in [1, 2, 3]:
+                    bonuses[is_overnight] = -5  # Strong negative bonus (penalty) for unwanted overnights
+                else:
+                    # For crew with time preference, we need to ensure the penalty overrides any time preference bonus
+                    # Apply a flat negative penalty that's stronger than any possible time bonus
+                    
+                    # First zero out existing bonuses for overnights
+                    temp_bonuses = bonuses.copy()
+                    temp_bonuses[is_overnight] = 0
+                    
+                    # Then apply a strong negative penalty
+                    temp_bonuses[is_overnight] = -8  # Strong penalty that should override any other factor
+                    
+                    # For the specific conflict you mentioned (PM preference getting AM overnight)
+                    # Add even stronger penalty for the worst mismatches
+                    if pref == 3:  # PM preference
+                        # Find AM overnights (before 9 AM)
+                        am_overnight_mask = is_overnight & (dalpair['shour'].values < 9)
+                        if np.any(am_overnight_mask):
+                            temp_bonuses[am_overnight_mask] = -15  # Extra strong penalty
+                    
+                    bonuses = temp_bonuses
         
         # houidxs = dalpair[(dalpair['mult']==2)&(dalpair['dtime']==9600)]['dalidx']
         # fav = 16
@@ -763,12 +787,32 @@ def fca(base, seat, d1, d2, seconds):
                     temp_bonuses[is_overnight] = np.floor(temp_bonuses[is_overnight] * 1).astype(int)
                     bonuses = np.minimum(temp_bonuses, 10)  # Cap at 10
                     
-            elif pref_over[c] == 1:  # No overnights
-                # No need to add penalties for crew with no time preference - zeros stay zeros
-                if pref in [1, 2, 3]:
-                    # Only reduce for crew with time preference
+            elif pref_over[c] == 1:  # No overnights - should be strongly penalized
+                # Apply strong negative values for overnights for all crew members who don't want them
+                # This should override any time preference bonus they might get
+                
+                # For crew with no time preference, assign a strong negative value
+                if pref not in [1, 2, 3]:
+                    bonuses[is_overnight] = -5  # Strong negative bonus (penalty) for unwanted overnights
+                else:
+                    # For crew with time preference, we need to ensure the penalty overrides any time preference bonus
+                    # Apply a flat negative penalty that's stronger than any possible time bonus
+                    
+                    # First zero out existing bonuses for overnights
                     temp_bonuses = bonuses.copy()
-                    temp_bonuses[is_overnight] = np.floor(temp_bonuses[is_overnight] * 0.3).astype(int)
+                    temp_bonuses[is_overnight] = 0
+                    
+                    # Then apply a strong negative penalty
+                    temp_bonuses[is_overnight] = -8  # Strong penalty that should override any other factor
+                    
+                    # For the specific conflict you mentioned (PM preference getting AM overnight)
+                    # Add even stronger penalty for the worst mismatches
+                    if pref == 3:  # PM preference
+                        # Find AM overnights (before 9 AM)
+                        am_overnight_mask = is_overnight & (dalpair['shour'].values < 9)
+                        if np.any(am_overnight_mask):
+                            temp_bonuses[am_overnight_mask] = -15  # Extra strong penalty
+                    
                     bonuses = temp_bonuses
             
             time_bonuses[c] = bonuses
