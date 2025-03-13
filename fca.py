@@ -645,11 +645,9 @@ def fca(base, seat, d1, d2, seconds):
         for c in range(n_c):
             pref = pref_over[c]
             if pref == 1:  # No overnights
-                idxs = single
-                constraints += [pover[c] == 2*cp.sum(xp[c,idxs])]
+                constraints += [pover[c] == cp.sum(xp[c,single]) - cp.sum(xp[c,multi])]
             elif pref == 3:  # Many overnights
-                idxs = multi
-                constraints += [pover[c] == cp.sum(xp[c,idxs])]
+                constraints += [pover[c] == cp.sum(xp[c,multi]) - cp.sum(xp[c,single])] 
             elif pref == 2:  # Some overnights
                 # For "Some" preference: 
                 # - Get points for multi (overnight) pairings up to 3
