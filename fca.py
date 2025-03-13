@@ -741,9 +741,8 @@ def fca(base, seat, d1, d2, seconds):
             is_overnight = dalpair['mult'].values > 1
 
             if pref_over[c] == 3: 
-                # For crew with no time preference, assign a smaller flat bonus
                 if pref not in [1, 2, 3]:
-                    bonuses[is_overnight] = 2  # Static bonus for some overnights
+                    bonuses[is_overnight] = 2  # Static bonus for Many overnights
                 else:
                     # For crew with time preference, apply smaller boost
                     temp_bonuses = bonuses.copy()
@@ -751,16 +750,57 @@ def fca(base, seat, d1, d2, seconds):
                     bonuses = np.minimum(temp_bonuses, 10)  # Cap at 10
             
             if pref_over[c] == 2: 
-                # For crew with no time preference, assign a smaller flat bonus
+                # For crew with no time preference, assign bonuses with 3-overnight cap
                 if pref not in [1, 2, 3]:
-                    bonuses[is_overnight] = 0  # Static bonus for some overnights
-                else:
-                    # For crew with time preference, apply smaller boost
-                    temp_bonuses = bonuses.copy()
-                    temp_bonuses[is_overnight] = np.floor(temp_bonuses[is_overnight] * .25).astype(int)
-                    bonuses = np.minimum(temp_bonuses, 10)  # Cap at 10
+                    # First identify overnight pairings
+                    overnight_indices = np.where(is_overnight)[0]
                     
-            elif pref_over[c] == 1:  # No overnights - apply penalty to time preference only
+                    # Group pairings by date to count overnights per day
+                    pairing_dates = {}
+                    for idx in overnight_indices:
+                        date = dalpair.iloc[idx]['d1']
+                        if date not in pairing_dates:
+                            pairing_dates[date] = []
+                        pairing_dates[date].append(idx)
+                    
+                    # Apply bonuses with cap at 3 overnights
+                    overnight_count = 0
+                    bonuses_applied = 0
+                    
+                    # Sort dates to process in chronological order
+                    for date in sorted(pairing_dates.keys()):
+                        for idx in pairing_dates[date]:
+                            if overnight_count < 3:
+                                # Positive bonus for first 3 overnights
+                                bonuses[idx] = 2
+                                bonuses_applied += 1
+                            else:
+                                # Negative value for excess overnights
+                                bonuses[idx] = -2
+                            overnight_count += 1
+                else:
+                    # For crew with time preference, use a more sophisticated approach
+                    # that preserves their time preference but still implements the 3-overnight cap
+                    
+                    # First identify overnight pairings
+                    overnight_indices = np.where(is_overnight)[0]
+                    
+                    # Sort overnight pairings by bonus value (highest first)
+                    sorted_indices = sorted(overnight_indices, key=lambda idx: bonuses[idx], reverse=True)
+                    
+                    # Apply modified bonuses
+                    temp_bonuses = bonuses.copy()
+                    for i, idx in enumerate(sorted_indices):
+                        if i < 3:
+                            # Keep positive bonus for first 3 overnights, but boost it
+                            temp_bonuses[idx] = max(temp_bonuses[idx], 1)  # Ensure at least some bonus
+                        else:
+                            # Apply negative bonus for excess overnights
+                            temp_bonuses[idx] = -2
+                    
+                    bonuses = temp_bonuses
+            
+            if pref_over[c] == 1:  # No overnights - apply penalty to time preference only
                 # Apply negative values for overnights in the time preference bonus calculation
                 if pref not in [1, 2, 3]:
                     bonuses[is_overnight] = -5  # Penalty for unwanted overnights
