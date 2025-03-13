@@ -96,7 +96,13 @@ def analyze_run(base: str, seat: str):
         
         sum_npsd = 0
         sum_dbd = 0
-        for k,v in enumerate(trassd.values()):
+        # Convert to list and reverse the order for enumeration
+        trassd_values = list(trassd.values())
+        trassd_keys = list(trassd.keys())
+        
+        # Enumerate in reverse order (from last to first)
+        for k in range(len(trassd_values)-1, -1, -1):
+            v = trassd_values[k]
             log(f"\nAnalyzing {names[k]}")
             log_line(f"\nFor {names[k]}")
             days = mar[mar['idx'].isin(v)][['d1','d2','idx','mult','shour']].sort_values(by='d1').values
