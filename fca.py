@@ -653,7 +653,7 @@ def fca(base, seat, d1, d2, seconds):
             elif pref == 2:  # Some overnights
                 # For "Some" preference: 
                 # - Get points for multi (overnight) pairings up to 3
-                # - Penalize for overnights beyond 3
+                # - Penalize overnights beyond 3
                 
                 # Create auxiliary variables for the capped multi count
                 multi_count = cp.sum(xp[c,multi])
@@ -675,10 +675,11 @@ def fca(base, seat, d1, d2, seconds):
                 multi_capped = has_multi[0] + has_multi[1] + has_multi[2]
                 
                 # Calculate excess multi beyond 3
-                multi_excess = multi_count - multi_capped
+                multi_excess = cp.maximum(0, multi_count - 3)
                 
-                # Penalize excess overnights - subtract from the benefit
-                # This makes having 4+ overnights worse than having exactly 3
+                # Apply both the bonus for up to 3 and penalty beyond 3
+                # This gives +1 point for each of the first 3 overnights
+                # And -1 point for each overnight beyond 3
                 constraints += [pover[c] == multi_capped - multi_excess]
             else:
                 constraints += [pover[c] == 0]
