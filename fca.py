@@ -649,38 +649,28 @@ def fca(base, seat, d1, d2, seconds):
             elif pref == 3:  # Many overnights
                 constraints += [pover[c] == cp.sum(xp[c,multi]) - cp.sum(xp[c,single])] 
             elif pref == 2:  # Some overnights
-                # For "Some" preference: 
-                # - Get points for multi (overnight) pairings up to 3
-                # - Penalize overnights beyond 3
+                # Change to use the same scale as other preferences but with capping
+                # We want to reward multi-day pairings up to 3, then discourage beyond that
                 
-                # Create auxiliary variables for the capped multi count
+                # Count the total number of multi-day and single-day pairings
                 multi_count = cp.sum(xp[c,multi])
+                single_count = cp.sum(xp[c,single])
                 
-                # Use binary variables to implement min(multi_count, 3)
-                has_multi = cp.Variable(4, boolean=True)  # has_multi[i] = 1 if multi_count >= i
+                # Cap multi-day reward at 3
+                capped_multi = cp.Variable(1)
+                constraints += [capped_multi <= 3]  # Cap at 3
+                constraints += [capped_multi <= multi_count]  # Can't exceed actual multi count
                 
-                # Enforce ordering: has_multi[i] >= has_multi[i+1]
-                for i in range(3):
-                    constraints += [has_multi[i] >= has_multi[i+1]]
+                # For excess multi beyond 3, count them as negative like "No Overnights" preference
+                excess_multi = cp.Variable(1)
+                constraints += [excess_multi >= 0]
+                constraints += [excess_multi >= multi_count - 3]
                 
-                # Connect has_multi to multi_count
-                constraints += [multi_count >= has_multi[0]]
-                for i in range(1, 4):
-                    constraints += [multi_count >= i*has_multi[i]]
-                    constraints += [multi_count <= i + 3*(1-has_multi[i])]
-                
-                # Calculate capped multi (0 to 3)
-                multi_capped = has_multi[0] + has_multi[1] + has_multi[2]
-                
-                # Create a variable to represent excess beyond 3 overnights
-                multi_excess = cp.Variable(1)
-                constraints += [multi_excess >= 0]  # Must be non-negative
-                constraints += [multi_excess >= multi_count - 3]  # Must be at least multi_count - 3
-                
-                # Apply both the bonus for up to 3 and penalty beyond 3
-                # This gives +1 point for each of the first 3 overnights
-                # And -1 point for each overnight beyond 3
-                constraints += [pover[c] == multi_capped - multi_excess]
+                # Create a score more similar to other preferences:
+                # - Add points for single-day pairings
+                # - Add points for multi-day pairings (up to 3)
+                # - Subtract points for excess multi-day pairings (beyond 3)
+                constraints += [pover[c] == capped_multi + single_count - excess_multi]
             else:
                 constraints += [pover[c] == 0]
                 continue
