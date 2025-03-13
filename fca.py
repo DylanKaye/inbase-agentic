@@ -750,18 +750,7 @@ def fca(base, seat, d1, d2, seconds):
             # Create a copy of the boolean mask to avoid modifying original data
             is_overnight = dalpair['mult'].values > 1
             
-            # Apply overnight bonuses/penalties based on preference
-            if pref_over[c] == 3:  # Prefers many overnights
-                # For crew with no time preference, assign a flat bonus
-                if pref not in [1, 2, 3]:
-                    bonuses[is_overnight] = 3  # Static bonus for preferred overnights
-                else:
-                    # For crew with time preference, boost existing values
-                    temp_bonuses = bonuses.copy()
-                    temp_bonuses[is_overnight] = np.floor(temp_bonuses[is_overnight] * 1.5).astype(int)
-                    bonuses = np.minimum(temp_bonuses, 10)  # Cap at 10
-                    
-            elif pref_over[c] == 2:  # Prefers some overnights
+            if pref_over[c] in [2,3]: 
                 # For crew with no time preference, assign a smaller flat bonus
                 if pref not in [1, 2, 3]:
                     bonuses[is_overnight] = 2  # Static bonus for some overnights
