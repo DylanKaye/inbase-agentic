@@ -674,8 +674,10 @@ def fca(base, seat, d1, d2, seconds):
                 # Calculate capped multi (0 to 3)
                 multi_capped = has_multi[0] + has_multi[1] + has_multi[2]
                 
-                # Calculate excess multi beyond 3
-                multi_excess = cp.maximum(0, multi_count - 3)
+                # Create a variable to represent excess beyond 3 overnights
+                multi_excess = cp.Variable(1)
+                constraints += [multi_excess >= 0]  # Must be non-negative
+                constraints += [multi_excess >= multi_count - 3]  # Must be at least multi_count - 3
                 
                 # Apply both the bonus for up to 3 and penalty beyond 3
                 # This gives +1 point for each of the first 3 overnights
