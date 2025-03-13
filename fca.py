@@ -886,6 +886,7 @@ def fca(base, seat, d1, d2, seconds):
                              numberThreads=24, 
                              verbose=True, 
                              maximumSeconds=seconds,
+                             maximumSolutions=1,
                              allowableGap=0.01)  # Accept solutions within 1% of optimal
         
         # Run the solver with output capture
