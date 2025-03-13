@@ -704,7 +704,7 @@ def fca(base, seat, d1, d2, seconds):
         print(f"Using time preferences for {base}: Early={early_time}, Middle={middle_time}, Late={late_time}", flush=True)
         
         # First calculate maximum possible distance for normalization
-        max_time_distance = 10  # Maximum hours distance in a day
+        max_time_distance = 12  # Maximum hours distance in a day
         
         # Create a bonus-only time preference system with integer values
         time_bonuses = {}
@@ -726,7 +726,7 @@ def fca(base, seat, d1, d2, seconds):
                 distances = np.abs(dalpair['shour'].values - ref_time)
                 
                 # Convert distances to integer bonuses (closer = higher bonus)
-                bonuses = np.round(10 * (1 - distances / max_time_distance)).astype(int)
+                bonuses = np.round(12 * (1 - distances / max_time_distance)).astype(int)
             
             # Apply modifications for reserves and overnights for ALL crew members
             # regardless of whether they have a time preference
