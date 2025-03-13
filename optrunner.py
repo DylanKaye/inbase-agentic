@@ -34,7 +34,7 @@ try:
         
         if seat in ['CA','FO','FA'] and base in ['DAL','BUR','LAS','SNA','OPF','SCF','OAK']: 
             if base == 'DAL':
-                ttr = 100
+                ttr = 60
             elif base in ['BUR','LAS']:
                 ttr = 100
             else:
