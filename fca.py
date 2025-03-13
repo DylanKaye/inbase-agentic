@@ -690,6 +690,20 @@ def fca(base, seat, d1, d2, seconds):
             else:
                 constraints += [pover[c] == 0]
                 continue
+        
+        # Add constraint for 3+ day pairings (only for crew who prefer many overnights)
+        # First identify pairings with 3 or more days
+        long_pairings = dalpair[dalpair['mult'] >= 3]['dalidx'].values
+        print(f"Found {len(long_pairings)} pairings with 3 or more days", flush=True)
+        
+        # Add constraint for each crew member
+        for c in range(n_c):
+            pref = pref_over[c]
+            if pref != 3:  # Not "Many Overnights" preference
+                # Prevent assignment of 3+ day pairings to this crew member
+                constraints += [cp.sum(xp[c, long_pairings]) == 0]
+        
+        print(f"Added constraints to ensure 3+ day pairings only go to crew who prefer many overnights", flush=True)
 
         #houidxs = dalpair[(dalpair['mult']==2)&(dalpair['dtime']==9600)]['dalidx']
         #fav = 16
