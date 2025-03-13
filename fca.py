@@ -644,13 +644,13 @@ def fca(base, seat, d1, d2, seconds):
         #overnight
         for c in range(n_c):
             pref = pref_over[c]
-            if pref == 1:
+            if pref == 1:  # No overnights
                 idxs = single
                 constraints += [pover[c] == cp.sum(xp[c,idxs])]
-            elif pref == 3:
+            elif pref == 3:  # Many overnights
                 idxs = multi
                 constraints += [pover[c] == cp.sum(xp[c,idxs])]
-            elif pref == 2:
+            elif pref == 2:  # Some overnights
                 # For "Some" preference: 
                 # - Get points for multi (overnight) pairings up to 3
                 # - Get points for single pairings after that
@@ -687,38 +687,14 @@ def fca(base, seat, d1, d2, seconds):
                 
                 # Set pover to be the sum of capped multi and effective single
                 constraints += [pover[c] == multi_capped + effective_single]
-            elif pref == 1:  # No overnights - should be strongly penalized
-                # Apply strong negative values for overnights for all crew members who don't want them
-                # This should override any time preference bonus they might get
-                
-                # For crew with no time preference, assign a strong negative value
-                if pref not in [1, 2, 3]:
-                    bonuses[is_overnight] = -5  # Strong negative bonus (penalty) for unwanted overnights
-                else:
-                    # For crew with time preference, we need to ensure the penalty overrides any time preference bonus
-                    # Apply a flat negative penalty that's stronger than any possible time bonus
-                    
-                    # First zero out existing bonuses for overnights
-                    temp_bonuses = bonuses.copy()
-                    temp_bonuses[is_overnight] = 0
-                    
-                    # Then apply a strong negative penalty
-                    temp_bonuses[is_overnight] = -8  # Strong penalty that should override any other factor
-                    
-                    # For the specific conflict you mentioned (PM preference getting AM overnight)
-                    # Add even stronger penalty for the worst mismatches
-                    if pref == 3:  # PM preference
-                        # Find AM overnights (before 9 AM)
-                        am_overnight_mask = is_overnight & (dalpair['shour'].values < 9)
-                        if np.any(am_overnight_mask):
-                            temp_bonuses[am_overnight_mask] = -15  # Extra strong penalty
-                    
-                    bonuses = temp_bonuses
-        
-        # houidxs = dalpair[(dalpair['mult']==2)&(dalpair['dtime']==9600)]['dalidx']
-        # fav = 16
-        # constraints += [cp.sum(xp[fav,houidxs]) == 3]
-        # constraints += [cp.sum(xp[-1,houidxs])+cp.sum(xp[-2,houidxs])+cp.sum(xp[-4,houidxs]) == 6]
+            else:
+                constraints += [pover[c] == 0]
+                continue
+
+        #houidxs = dalpair[(dalpair['mult']==2)&(dalpair['dtime']==9600)]['dalidx']
+        #fav = 16
+        #constraints += [cp.sum(xp[fav,houidxs]) == 3]
+        #constraints += [cp.sum(xp[-1,houidxs])+cp.sum(xp[-2,houidxs])+cp.sum(xp[-4,houidxs]) == 6]
 
         # Replace the personalized time penalty system with a bonus-only approach
         # Use base-specific time preferences
@@ -787,28 +763,17 @@ def fca(base, seat, d1, d2, seconds):
                     temp_bonuses[is_overnight] = np.floor(temp_bonuses[is_overnight] * 1).astype(int)
                     bonuses = np.minimum(temp_bonuses, 10)  # Cap at 10
                     
-            elif pref_over[c] == 1:  # No overnights - should be strongly penalized
-                # Apply strong negative values for overnights for all crew members who don't want them
-                # This should override any time preference bonus they might get
-                
-                # For crew with no time preference, assign a strong negative value
+            elif pref_over[c] == 1:  # No overnights - apply penalty to time preference only
+                # Apply negative values for overnights in the time preference bonus calculation
                 if pref not in [1, 2, 3]:
-                    bonuses[is_overnight] = -5  # Strong negative bonus (penalty) for unwanted overnights
+                    bonuses[is_overnight] = -5  # Penalty for unwanted overnights
                 else:
-                    # For crew with time preference, we need to ensure the penalty overrides any time preference bonus
-                    # Apply a flat negative penalty that's stronger than any possible time bonus
-                    
-                    # First zero out existing bonuses for overnights
+                    # For crew with time preference, create strong disincentives
                     temp_bonuses = bonuses.copy()
-                    temp_bonuses[is_overnight] = 0
+                    temp_bonuses[is_overnight] = -8  # Strong penalty
                     
-                    # Then apply a strong negative penalty
-                    temp_bonuses[is_overnight] = -8  # Strong penalty that should override any other factor
-                    
-                    # For the specific conflict you mentioned (PM preference getting AM overnight)
-                    # Add even stronger penalty for the worst mismatches
+                    # Stronger penalty for PM preference getting AM overnight
                     if pref == 3:  # PM preference
-                        # Find AM overnights (before 9 AM)
                         am_overnight_mask = is_overnight & (dalpair['shour'].values < 9)
                         if np.any(am_overnight_mask):
                             temp_bonuses[am_overnight_mask] = -15  # Extra strong penalty
@@ -907,7 +872,7 @@ def fca(base, seat, d1, d2, seconds):
         else:
             char_val = 0
         objective = cp.Maximize(.1*cp.sum(cdos) - .2*cp.sum(chnk) + 3*cp.sum(cp.multiply(po,sen)) + 2*cp.sum(cp.multiply(pover,sen)) + .3*cp.sum(cp.multiply(ptime,sen)) + 1.5*res_val + char_val)
-        #objective = cp.Maximize(3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + .3*cp.sum(cp.multiply(ptime,sen)) + 4*cp.sum(ppto) + 1.5*res_val + char_val)
+        #objective = cp.Maximize(3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + cp.sum(cp.multiply(ptime,sen)) + 4*cp.sum(ppto) + 1.5*res_val + char_val)
         #objective = cp.Maximize(1.5*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + cp.sum(cp.multiply(ptime,sen)) + 3*cp.sum(ppto) + 1.1*res_val + char_val)
         #objective = cp.Maximize(cp.sum(po) + cp.sum(pover) + cp.sum(ptime) + cp.sum(ppto) + cp.sum(cp.minimum(pres, np.ones(n_c)*3)))# - cp.max(over) + cp.min(over))# + cp.sum(ppto))
         #objective = cp.Minimize(0)
