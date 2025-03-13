@@ -736,6 +736,12 @@ def fca(base, seat, d1, d2, seconds):
                 # Boost reserve bonuses
                 for idx in r_idxs:
                     bonuses[idx] = 5  # Bonus for preferred reserves
+                
+            # Reserve bonuses for those who don't prefer reserves
+            if len(r_idxs) > 0 and pref_reserves[c] == 2:  # Doesn't prefer reserves
+                # Boost reserve bonuses
+                for idx in r_idxs:
+                    bonuses[idx] = -5
             
             # Create a copy of the boolean mask to avoid modifying original data
             is_overnight = dalpair['mult'].values > 1
