@@ -115,9 +115,29 @@ def analyze_run(base: str, seat: str):
             log(f"Reserve preference: {prefs['reserve_preference'].iloc[k]}")
             log(f"Time Period Preference: {prefs['time_period_preference'].iloc[k]}")
             # log(f"Days: {sorted(np.unique(days[:,0].tolist() + days[:,1].tolist()))}")
+            
+            # Get preferred days off for this crew member
+            preferred_days_off = prefs['preferred_days_off'].iloc[k]
+            # Convert to list if it's a string (assuming comma-separated format)
+            if isinstance(preferred_days_off, str):
+                preferred_days_off = [int(day.strip()) for day in preferred_days_off.split(',') if day.strip().isdigit()]
+            elif pd.isna(preferred_days_off):
+                preferred_days_off = []
+            else:
+                preferred_days_off = list(preferred_days_off)
+                
+            log(f"Preferred days off: {preferred_days_off}")
 
             for row in days:
                 log_line(f'{row[0]}, {row[1]}, {row[2]}, {row[3]}, {row[4]}')
+                # Check if either d1 or d2 is in preferred days off
+                if preferred_days_off and (row[0] in preferred_days_off or row[1] in preferred_days_off):
+                    conflicting_days = []
+                    if row[0] in preferred_days_off:
+                        conflicting_days.append(row[0])
+                    if row[1] in preferred_days_off:
+                        conflicting_days.append(row[1])
+                    log_line(f'  ⚠️ CONFLICT: Day(s) {conflicting_days} overlap with preferred days off')
 
         log(f"\nSummary:")
         log(f"Duties Assigned: {sum_npsd}")
