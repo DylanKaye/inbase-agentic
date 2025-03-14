@@ -116,13 +116,14 @@ def analyze_run(base: str, seat: str):
             log(f"Time Period Preference: {prefs['time_period_preference'].iloc[k]}")
             # log(f"Days: {sorted(np.unique(days[:,0].tolist() + days[:,1].tolist()))}")
 
-            prefs['preferred_days_off'] = eval(prefs['preferred_days_off'].iloc[k])
+            
 
             for row in days:
                 prefvio = 0
+                preferred_days = eval(prefs['preferred_days_off'].iloc[k])
                 # Extract just the date part from preferred_days_off for comparison
                 preferred_days = [day.split('T')[0] if isinstance(day, str) and 'T' in day else day 
-                                 for day in prefs['preferred_days_off']]
+                                 for day in preferred_days]
                 
                 if row[0] in preferred_days:
                     prefvio += 1
