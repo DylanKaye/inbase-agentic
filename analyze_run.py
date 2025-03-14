@@ -82,14 +82,30 @@ def analyze_run(base: str, seat: str):
         else:
             base2 = [base]
         mar_base = mar[mar['base_start'].isin(base2)]
+        
+        # Create a mapping from positions in xpv to actual indices in mar_base
+        # This assumes xpv columns correspond to the same order as mar before filtering
+        xpv_to_mar_mapping = {}
+        mar_filtered_indices = mar_base.index.tolist()
+        
+        # If mar was originally in the same order as columns in xpv
+        # we need to track which positions in the original mar correspond to positions in mar_base
+        original_positions = mar.index[mar['base_start'].isin(base2)].tolist()
+        for i, pos in enumerate(original_positions):
+            xpv_to_mar_mapping[pos] = i
+        
         for ind, row in enumerate(xpv.values):
             for ind2, row2 in enumerate(row):
                 if row2 == 0:
                     continue
                 if emails[ind] not in trassd:
                     trassd[emails[ind]] = []
-                pair = mar_base.iloc[ind2]['idx']
-                trassd[emails[ind]].append(pair)
+                
+                # Only access valid indices using the mapping
+                if ind2 in xpv_to_mar_mapping:
+                    mar_base_idx = xpv_to_mar_mapping[ind2]
+                    pair = mar_base.iloc[mar_base_idx]['idx']
+                    trassd[emails[ind]].append(pair)
         with open(f'{base}_trassd_{seat}.json','w') as fp:
             json.dump(trassd, fp)
             fp.flush()
