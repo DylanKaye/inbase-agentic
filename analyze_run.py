@@ -128,6 +128,7 @@ def analyze_run(base: str, seat: str):
                     prefvio += 1
                 elif row[1] in preferred_days:
                     prefvio += 1
+                log(preferred_days)
                 log_line(f'{row[0]}, {row[1]}, {row[2]}, {row[3]}, {row[4]}, {prefvio}')
 
         log(f"\nSummary:")
