@@ -129,7 +129,7 @@ def analyze_run(base: str, seat: str):
                 elif row[1] in preferred_days:
                     prefvio += 1
                 log(prefs['preferred_days_off'].iloc[k])
-                log(eval(prefs['preferred_days_off'].iloc[k][0]))
+                log(eval(prefs['preferred_days_off'].iloc[k])[0])
                 log_line(f'{row[0]}, {row[1]}, {row[2]}, {row[3]}, {row[4]}, {prefvio}')
 
         log(f"\nSummary:")
