@@ -82,30 +82,14 @@ def analyze_run(base: str, seat: str):
         else:
             base2 = [base]
         mar_base = mar[mar['base_start'].isin(base2)]
-        
-        # Create a mapping from positions in xpv to actual indices in mar_base
-        # This assumes xpv columns correspond to the same order as mar before filtering
-        xpv_to_mar_mapping = {}
-        mar_filtered_indices = mar_base.index.tolist()
-        
-        # If mar was originally in the same order as columns in xpv
-        # we need to track which positions in the original mar correspond to positions in mar_base
-        original_positions = mar.index[mar['base_start'].isin(base2)].tolist()
-        for i, pos in enumerate(original_positions):
-            xpv_to_mar_mapping[pos] = i
-        
         for ind, row in enumerate(xpv.values):
             for ind2, row2 in enumerate(row):
                 if row2 == 0:
                     continue
                 if emails[ind] not in trassd:
                     trassd[emails[ind]] = []
-                
-                # Only access valid indices using the mapping
-                if ind2 in xpv_to_mar_mapping:
-                    mar_base_idx = xpv_to_mar_mapping[ind2]
-                    pair = mar_base.iloc[mar_base_idx]['idx']
-                    trassd[emails[ind]].append(pair)
+                pair = mar_base.iloc[ind2]['idx']
+                trassd[emails[ind]].append(pair)
         with open(f'{base}_trassd_{seat}.json','w') as fp:
             json.dump(trassd, fp)
             fp.flush()
@@ -131,29 +115,20 @@ def analyze_run(base: str, seat: str):
             log(f"Reserve preference: {prefs['reserve_preference'].iloc[k]}")
             log(f"Time Period Preference: {prefs['time_period_preference'].iloc[k]}")
             # log(f"Days: {sorted(np.unique(days[:,0].tolist() + days[:,1].tolist()))}")
-            
-            # Get preferred days off for this crew member
-            preferred_days_off = prefs['preferred_days_off'].iloc[k]
-            # Convert to list if it's a string (assuming comma-separated format)
-            if isinstance(preferred_days_off, str):
-                preferred_days_off = [int(day.strip()) for day in preferred_days_off.split(',') if day.strip().isdigit()]
-            elif pd.isna(preferred_days_off):
-                preferred_days_off = []
-            else:
-                preferred_days_off = list(preferred_days_off)
-                
-            log(f"Preferred days off: {preferred_days_off}")
+
+            prefs['preferred_days_off'] = prefs['preferred_days_off'].iloc[k].values
 
             for row in days:
-                log_line(f'{row[0]}, {row[1]}, {row[2]}, {row[3]}, {row[4]}')
-                # Check if either d1 or d2 is in preferred days off
-                if preferred_days_off and (row[0] in preferred_days_off or row[1] in preferred_days_off):
-                    conflicting_days = []
-                    if row[0] in preferred_days_off:
-                        conflicting_days.append(row[0])
-                    if row[1] in preferred_days_off:
-                        conflicting_days.append(row[1])
-                    log_line(f'  ⚠️ CONFLICT: Day(s) {conflicting_days} overlap with preferred days off')
+                prefvio = 0
+                # Extract just the date part from preferred_days_off for comparison
+                preferred_days = [day.split('T')[0] if isinstance(day, str) and 'T' in day else day 
+                                 for day in prefs['preferred_days_off']]
+                
+                if row[0] in preferred_days:
+                    prefvio += 1
+                elif row[1] in preferred_days:
+                    prefvio += 1
+                log_line(f'{row[0]}, {row[1]}, {row[2]}, {row[3]}, {row[4]}, {prefvio}')
 
         log(f"\nSummary:")
         log(f"Duties Assigned: {sum_npsd}")
