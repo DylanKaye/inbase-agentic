@@ -116,7 +116,7 @@ def analyze_run(base: str, seat: str):
             log(f"Time Period Preference: {prefs['time_period_preference'].iloc[k]}")
             # log(f"Days: {sorted(np.unique(days[:,0].tolist() + days[:,1].tolist()))}")
 
-            prefs['preferred_days_off'] = prefs['preferred_days_off'].iloc[k]
+            prefs['preferred_days_off'] = eval(prefs['preferred_days_off'].iloc[k])
 
             for row in days:
                 prefvio = 0
@@ -128,8 +128,6 @@ def analyze_run(base: str, seat: str):
                     prefvio += 1
                 elif row[1] in preferred_days:
                     prefvio += 1
-                log(prefs['preferred_days_off'].iloc[k])
-                log(eval(prefs['preferred_days_off'].iloc[k])[0])
                 log_line(f'{row[0]}, {row[1]}, {row[2]}, {row[3]}, {row[4]}, {prefvio}')
 
         log(f"\nSummary:")
