@@ -880,7 +880,7 @@ def fca(base, seat, d1, d2, seconds):
             char_val = cp.sum(pcha)
         else:
             char_val = 0
-        objective = cp.Maximize(.15*cp.sum(cdos) - .25*cp.sum(chnk) + 6*cp.sum(cp.multiply(po,sen)) + 2*cp.sum(cp.multiply(pover,sen)) + .8*cp.sum(cp.multiply(ptime,sen)) + 2.5*res_val + char_val)
+        objective = cp.Maximize(.15*cp.sum(cdos) - .25*cp.sum(chnk) + 10*cp.sum(cp.multiply(po,sen)) + 2*cp.sum(cp.multiply(pover,sen)) + .8*cp.sum(cp.multiply(ptime,sen)) + 2.5*res_val + char_val)
         #objective = cp.Maximize(3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + cp.sum(cp.multiply(ptime,sen)) + 4*cp.sum(ppto) + 1.5*res_val + char_val)
         #objective = cp.Maximize(1.5*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + cp.sum(cp.multiply(ptime,sen)) + 3*cp.sum(ppto) + 1.1*res_val + char_val)
         #objective = cp.Maximize(cp.sum(po) + cp.sum(pover) + cp.sum(ptime) + cp.sum(ppto) + cp.sum(cp.minimum(pres, np.ones(n_c)*3)))# - cp.max(over) + cp.min(over))# + cp.sum(ppto))
