@@ -36,9 +36,9 @@ try:
             if base == 'DAL':
                 ttr = 300
             elif base in ['BUR','LAS']:
-                ttr = 100
+                ttr = 300
             else:
-                ttr = 100
+                ttr = 300
 
             print(f"Running FCA optimization with time limit: {ttr} seconds")
             start_date, end_date = get_date_range()
