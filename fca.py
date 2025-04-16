@@ -717,10 +717,21 @@ def fca(base, seat, d1, d2, seconds):
                 # Choose reference time based on preference
                 if pref == 1:  # Early
                     ref_time = early_time
+                    # Add strong penalties for late trips
+                    far_time_mask = dalpair['shour'].values > (early_time + 4)  # More than 4 hours after preferred time
+                    bonuses[far_time_mask] = -15  # Strong penalty for far-away times
                 elif pref == 2:  # Middle
                     ref_time = middle_time
+                    # Add strong penalties for trips far from midday
+                    morning_mask = dalpair['shour'].values < (middle_time - 3)  # More than 3 hours before midday
+                    evening_mask = dalpair['shour'].values > (middle_time + 3)  # More than 3 hours after midday
+                    bonuses[morning_mask] = -15  # Strong penalty for early morning
+                    bonuses[evening_mask] = -15  # Strong penalty for evening
                 else:  # Late
                     ref_time = late_time
+                    # Add strong penalties for early trips (already done below for overnights)
+                    early_mask = dalpair['shour'].values < (late_time - 4)  # More than 4 hours before preferred time
+                    bonuses[early_mask] = -15  # Strong penalty for early times
                 
                 # Calculate raw distances
                 distances = np.abs(dalpair['shour'].values - ref_time)
@@ -871,6 +882,7 @@ def fca(base, seat, d1, d2, seconds):
             constraints += [overage <= 5] 
 
         sen = (prefs.index + 1) / len(prefs)
+
         if len(r_idxs) > 0:
             #res_val = cp.sum(cp.multiply(cp.minimum(pres, np.ones(n_c)*5),sen))
             res_val = cp.sum(cp.multiply(pres,sen*10))
