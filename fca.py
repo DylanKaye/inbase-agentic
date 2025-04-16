@@ -704,7 +704,7 @@ def fca(base, seat, d1, d2, seconds):
         print(f"Using time preferences for {base}: Early={early_time}, Middle={middle_time}, Late={late_time}", flush=True)
         
         # First calculate maximum possible distance for normalization
-        max_time_distance = 12  # Maximum hours distance in a day
+        max_time_distance = 20  # Maximum hours distance in a day
         
         # Create a bonus-only time preference system with integer values
         time_bonuses = {}
@@ -726,7 +726,7 @@ def fca(base, seat, d1, d2, seconds):
                 distances = np.abs(dalpair['shour'].values - ref_time)
                 
                 # Convert distances to integer bonuses (closer = higher bonus)
-                bonuses = np.round(20 * (1 - distances / max_time_distance)).astype(int)
+                bonuses = np.round(10 * (1 - distances / max_time_distance)).astype(int)
             
             # Apply modifications for reserves and overnights for ALL crew members
             # regardless of whether they have a time preference
@@ -873,14 +873,14 @@ def fca(base, seat, d1, d2, seconds):
         sen = (prefs.index + 1) / len(prefs)
         if len(r_idxs) > 0:
             #res_val = cp.sum(cp.multiply(cp.minimum(pres, np.ones(n_c)*5),sen))
-            res_val = cp.sum(cp.multiply(pres,sen))
+            res_val = cp.sum(cp.multiply(pres,sen*10))
         else:
             res_val = 0
         if len(c_idxs) > 0:
             char_val = cp.sum(pcha)
         else:
             char_val = 0
-        objective = cp.Maximize(.15*cp.sum(cdos) - .25*cp.sum(chnk) + 10*cp.sum(cp.multiply(po,sen*10)) + 2*cp.sum(cp.multiply(pover,sen)) + .8*cp.sum(cp.multiply(ptime,sen)) + 2.5*res_val + char_val)
+        objective = cp.Maximize(.15*cp.sum(cdos) - .25*cp.sum(chnk) + 10*cp.sum(cp.multiply(po,sen*10)) + 2*cp.sum(cp.multiply(pover,sen*5)) + .8*cp.sum(cp.multiply(ptime,sen*4)) + 2.5*res_val + char_val)
         #objective = cp.Maximize(3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + cp.sum(cp.multiply(ptime,sen)) + 4*cp.sum(ppto) + 1.5*res_val + char_val)
         #objective = cp.Maximize(1.5*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + cp.sum(cp.multiply(ptime,sen)) + 3*cp.sum(ppto) + 1.1*res_val + char_val)
         #objective = cp.Maximize(cp.sum(po) + cp.sum(pover) + cp.sum(ptime) + cp.sum(ppto) + cp.sum(cp.minimum(pres, np.ones(n_c)*3)))# - cp.max(over) + cp.min(over))# + cp.sum(ppto))
