@@ -34,11 +34,11 @@ try:
         
         if seat in ['CA','FO','FA'] and base in ['DAL','BUR','LAS','SNA','OPF','SCF','OAK']: 
             if base == 'DAL':
-                ttr = 30
+                ttr = 300
             elif base in ['BUR','LAS']:
-                ttr = 30
+                ttr = 300
             else:
-                ttr = 30
+                ttr = 300
 
             print(f"Running FCA optimization with time limit: {ttr} seconds")
             start_date, end_date = get_date_range()
