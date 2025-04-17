@@ -728,21 +728,21 @@ def fca(base, seat, d1, d2, seconds):
                 # Convert distances to integer bonuses (closer = higher bonus)
                 bonuses = np.round(10 * (1 - distances / max_time_distance)).astype(int)
                 
-                # Now apply strong penalties for trips significantly outside the preferred window
-                if pref == 1:  # Early
-                    # Add strong penalties for late trips
-                    far_time_mask = dalpair['shour'].values > (early_time + 4)  # More than 4 hours after preferred time
-                    bonuses[far_time_mask] = -15  # Strong penalty for far-away times
-                elif pref == 2:  # Middle
-                    # Add strong penalties for trips far from midday
-                    morning_mask = dalpair['shour'].values < (middle_time - 3)  # More than 3 hours before midday
-                    evening_mask = dalpair['shour'].values > (middle_time + 3)  # More than 3 hours after midday
-                    bonuses[morning_mask] = -15  # Strong penalty for early morning
-                    bonuses[evening_mask] = -15  # Strong penalty for evening
-                else:  # Late (pref == 3)
-                    # Add strong penalties for early trips
-                    early_mask = dalpair['shour'].values < (late_time - 4)  # More than 4 hours before preferred time
-                    bonuses[early_mask] = -15  # Strong penalty for early times
+                # # Now apply strong penalties for trips significantly outside the preferred window
+                # if pref == 1:  # Early
+                #     # Add strong penalties for late trips
+                #     far_time_mask = dalpair['shour'].values > (early_time + 4)  # More than 4 hours after preferred time
+                #     bonuses[far_time_mask] = -15  # Strong penalty for far-away times
+                # elif pref == 2:  # Middle
+                #     # Add strong penalties for trips far from midday
+                #     morning_mask = dalpair['shour'].values < (middle_time - 3)  # More than 3 hours before midday
+                #     evening_mask = dalpair['shour'].values > (middle_time + 3)  # More than 3 hours after midday
+                #     bonuses[morning_mask] = -15  # Strong penalty for early morning
+                #     bonuses[evening_mask] = -15  # Strong penalty for evening
+                # else:  # Late (pref == 3)
+                #     # Add strong penalties for early trips
+                #     early_mask = dalpair['shour'].values < (late_time - 4)  # More than 4 hours before preferred time
+                #     bonuses[early_mask] = -15  # Strong penalty for early times
             
             # Apply modifications for reserves and overnights for ALL crew members
             # regardless of whether they have a time preference
