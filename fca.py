@@ -890,7 +890,7 @@ def fca(base, seat, d1, d2, seconds):
 
         if len(r_idxs) > 0:
             #res_val = cp.sum(cp.multiply(cp.minimum(pres, np.ones(n_c)*5),sen))
-            res_val = cp.sum(cp.multiply(pres,sen*10))
+            res_val = cp.sum(cp.multiply(pres,(sen**2)*10))
         else:
             res_val = 0
         if len(c_idxs) > 0:
