@@ -678,9 +678,9 @@ def fca(base, seat, d1, d2, seconds):
         for c in range(n_c):
             pref = pref_over[c]
             if pref == 1:  # No overnights
-                constraints += [pover[c] == cp.sum(xp[c,multi])]
+                constraints += [pover[c] == cp.sum(xp[c,single])]
             elif pref == 3:  # Many overnights
-                constraints += [pover[c] == cp.sum(xp[c,single])] 
+                constraints += [pover[c] == cp.sum(xp[c,multi])] 
             elif pref == 2:  # Some overnights
                 # Change to use the same scale as other preferences but with capping
                 # We want to reward multi-day pairings up to 3, then discourage beyond that
@@ -937,7 +937,7 @@ def fca(base, seat, d1, d2, seconds):
             char_val = cp.sum(pcha)
         else:
             char_val = 0
-        objective = cp.Maximize(.15*cp.sum(cdos) - .25*cp.sum(chnk) + 10*cp.sum(cp.multiply(po,sen*10)) + 190*cp.sum(cp.multiply(pover,(sen**2)*5)) + 1*cp.sum(cp.multiply(ptime,sen*5)) + 5*res_val + char_val)
+        objective = cp.Maximize(.15*cp.sum(cdos) - .25*cp.sum(chnk) + 10*cp.sum(cp.multiply(po,sen*10)) + 10*cp.sum(cp.multiply(pover,(sen**2)*5)) + 1*cp.sum(cp.multiply(ptime,sen*5)) + 5*res_val + char_val)
         #objective = cp.Maximize(3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + cp.sum(cp.multiply(ptime,sen)) + 4*cp.sum(ppto) + 1.5*res_val + char_val)
         #objective = cp.Maximize(1.5*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + cp.sum(cp.multiply(ptime,sen)) + 3*cp.sum(ppto) + 1.1*res_val + char_val)
         #objective = cp.Maximize(cp.sum(po) + cp.sum(pover) + cp.sum(ptime) + cp.sum(ppto) + cp.sum(cp.minimum(pres, np.ones(n_c)*3)))# - cp.max(over) + cp.min(over))# + cp.sum(ppto))
