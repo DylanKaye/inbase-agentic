@@ -642,12 +642,45 @@ def fca(base, seat, d1, d2, seconds):
         #     constraints += [ppto[c] == max_days[c] - cp.sum(xp[c, pto_count])]
 
         #overnight
+        # for c in range(n_c):
+        #     pref = pref_over[c]
+        #     if pref == 1:  # No overnights
+        #         constraints += [pover[c] == cp.sum(xp[c,single]) - cp.sum(xp[c,multi])*2]
+        #     elif pref == 3:  # Many overnights
+        #         constraints += [pover[c] == cp.sum(xp[c,multi])*2 - cp.sum(xp[c,single])] 
+        #     elif pref == 2:  # Some overnights
+        #         # Change to use the same scale as other preferences but with capping
+        #         # We want to reward multi-day pairings up to 3, then discourage beyond that
+                
+        #         # Count the total number of multi-day and single-day pairings
+        #         multi_count = cp.sum(xp[c,multi])
+        #         single_count = cp.sum(xp[c,single])
+                
+        #         # Cap multi-day reward at 3
+        #         capped_multi = cp.Variable(1)
+        #         constraints += [capped_multi <= 3]  # Cap at 3
+        #         constraints += [capped_multi <= multi_count]  # Can't exceed actual multi count
+                
+        #         # For excess multi beyond 3, count them as negative like "No Overnights" preference
+        #         excess_multi = cp.Variable(1)
+        #         constraints += [excess_multi >= 0]
+        #         constraints += [excess_multi >= multi_count - 3]
+                
+        #         # Create a score more similar to other preferences:
+        #         # - Add points for single-day pairings
+        #         # - Add points for multi-day pairings (up to 3)
+        #         # - Subtract points for excess multi-day pairings (beyond 3)
+        #         constraints += [pover[c] == capped_multi*4 + single_count - 6*excess_multi]
+        #     else:
+        #         constraints += [pover[c] == 0]
+        #         continue
+
         for c in range(n_c):
             pref = pref_over[c]
             if pref == 1:  # No overnights
-                constraints += [pover[c] == cp.sum(xp[c,single]) - cp.sum(xp[c,multi])*2]
+                constraints += [pover[c] == cp.sum(xp[c,multi])]
             elif pref == 3:  # Many overnights
-                constraints += [pover[c] == cp.sum(xp[c,multi])*2 - cp.sum(xp[c,single])] 
+                constraints += [pover[c] == cp.sum(xp[c,single])] 
             elif pref == 2:  # Some overnights
                 # Change to use the same scale as other preferences but with capping
                 # We want to reward multi-day pairings up to 3, then discourage beyond that
@@ -670,7 +703,7 @@ def fca(base, seat, d1, d2, seconds):
                 # - Add points for single-day pairings
                 # - Add points for multi-day pairings (up to 3)
                 # - Subtract points for excess multi-day pairings (beyond 3)
-                constraints += [pover[c] == capped_multi*4 + single_count - 6*excess_multi]
+                constraints += [pover[c] == capped_multi]
             else:
                 constraints += [pover[c] == 0]
                 continue
