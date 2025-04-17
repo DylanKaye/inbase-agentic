@@ -670,7 +670,7 @@ def fca(base, seat, d1, d2, seconds):
                 # - Add points for single-day pairings
                 # - Add points for multi-day pairings (up to 3)
                 # - Subtract points for excess multi-day pairings (beyond 3)
-                constraints += [pover[c] == capped_multi*2 + single_count - 6*excess_multi]
+                constraints += [pover[c] == capped_multi*4 + single_count - 6*excess_multi]
             else:
                 constraints += [pover[c] == 0]
                 continue
