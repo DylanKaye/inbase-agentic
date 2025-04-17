@@ -410,6 +410,7 @@ def fca(base, seat, d1, d2, seconds):
         # ppto = cp.Variable(n_c, integer=True)
         chnk = cp.Variable(n_c, integer=True)
         cdos = cp.Variable(n_c, integer=True)
+        excov = cp.Variable(n_c, integer=True)
         #debu = cp.Variable(n_c, integer=True)
         constraints = []
 
@@ -679,8 +680,10 @@ def fca(base, seat, d1, d2, seconds):
             pref = pref_over[c]
             if pref == 1:  # No overnights
                 constraints += [pover[c] == cp.sum(xp[c,single])]
+                constraints += [excov[c] == -cp.sum(xp[c,multi])]
             elif pref == 3:  # Many overnights
                 constraints += [pover[c] == cp.sum(xp[c,multi])] 
+                constraints += [excov[c] == -cp.sum(xp[c,single])]
             elif pref == 2:  # Some overnights
                 # Change to use the same scale as other preferences but with capping
                 # We want to reward multi-day pairings up to 3, then discourage beyond that
@@ -704,8 +707,10 @@ def fca(base, seat, d1, d2, seconds):
                 # - Add points for multi-day pairings (up to 3)
                 # - Subtract points for excess multi-day pairings (beyond 3)
                 constraints += [pover[c] == capped_multi]
+                constraints += [excov[c] == -excess_multi]
             else:
                 constraints += [pover[c] == 0]
+                constraints += [excov[c] == 0]
                 continue
         
         # Add constraint for 3+ day pairings (only for crew who prefer many overnights)
@@ -937,7 +942,7 @@ def fca(base, seat, d1, d2, seconds):
             char_val = cp.sum(pcha)
         else:
             char_val = 0
-        objective = cp.Maximize(.15*cp.sum(cdos) - .25*cp.sum(chnk) + 10*cp.sum(cp.multiply(po,sen*10)) + 5*cp.sum(cp.multiply(pover,(sen**2)*20)) + 1*cp.sum(cp.multiply(ptime,sen*5)) + 5*res_val + char_val)
+        objective = cp.Maximize(.15*cp.sum(cdos) - .25*cp.sum(chnk) + 10*cp.sum(cp.multiply(po,sen*10)) + 5*cp.sum(cp.multiply(pover,(sen**2)*20)) + 0.5*cp.sum(cp.multiply(excov,sen)) + 1*cp.sum(cp.multiply(ptime,sen*5)) + 5*res_val + char_val)
         #objective = cp.Maximize(3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + cp.sum(cp.multiply(ptime,sen)) + 4*cp.sum(ppto) + 1.5*res_val + char_val)
         #objective = cp.Maximize(1.5*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + cp.sum(cp.multiply(ptime,sen)) + 3*cp.sum(ppto) + 1.1*res_val + char_val)
         #objective = cp.Maximize(cp.sum(po) + cp.sum(pover) + cp.sum(ptime) + cp.sum(ppto) + cp.sum(cp.minimum(pres, np.ones(n_c)*3)))# - cp.max(over) + cp.min(over))# + cp.sum(ppto))
