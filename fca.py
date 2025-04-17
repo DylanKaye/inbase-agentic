@@ -725,24 +725,31 @@ def fca(base, seat, d1, d2, seconds):
                 # Calculate raw distances
                 distances = np.abs(dalpair['shour'].values - ref_time)
                 
-                # Convert distances to integer bonuses (closer = higher bonus)
-                bonuses = np.round(10 * (1 - distances / max_time_distance)).astype(int)
+                # First calculate the raw bonus values
+                raw_bonuses = 10 * (1 - distances / max_time_distance)
                 
-                # # Now apply strong penalties for trips significantly outside the preferred window
-                # if pref == 1:  # Early
-                #     # Add strong penalties for late trips
-                #     far_time_mask = dalpair['shour'].values > (early_time + 4)  # More than 4 hours after preferred time
-                #     bonuses[far_time_mask] = -15  # Strong penalty for far-away times
-                # elif pref == 2:  # Middle
-                #     # Add strong penalties for trips far from midday
-                #     morning_mask = dalpair['shour'].values < (middle_time - 3)  # More than 3 hours before midday
-                #     evening_mask = dalpair['shour'].values > (middle_time + 3)  # More than 3 hours after midday
-                #     bonuses[morning_mask] = -15  # Strong penalty for early morning
-                #     bonuses[evening_mask] = -15  # Strong penalty for evening
-                # else:  # Late (pref == 3)
-                #     # Add strong penalties for early trips
-                #     early_mask = dalpair['shour'].values < (late_time - 4)  # More than 4 hours before preferred time
-                #     bonuses[early_mask] = -15  # Strong penalty for early times
+                # Now normalize these bonuses to ensure they use the full 0-10 range for each crew member
+                # This ensures that each crew member's highest priority trip gets a 10, regardless of absolute distance
+                if np.max(raw_bonuses) > np.min(raw_bonuses):  # Only normalize if there's variation
+                    # Normalize to 0-10 range
+                    bonuses = np.round(10 * (raw_bonuses - np.min(raw_bonuses)) / 
+                                      (np.max(raw_bonuses) - np.min(raw_bonuses))).astype(int)
+                else:
+                    # If all trips have the same distance (unlikely), assign a flat value
+                    bonuses = np.round(raw_bonuses).astype(int)
+                
+                # # Apply a steeper penalty to trips that are very far from preferred time
+                # if pref == 1:  # Early preference
+                #     very_late = dalpair['shour'].values > (early_time + 5)
+                #     bonuses[very_late] = -5
+                # elif pref == 2:  # Middle preference
+                #     very_early = dalpair['shour'].values < (middle_time - 4)
+                #     very_late = dalpair['shour'].values > (middle_time + 4)
+                #     bonuses[very_early] = -5
+                #     bonuses[very_late] = -5
+                # elif pref == 3:  # Late preference
+                #     very_early = dalpair['shour'].values < (late_time - 5)
+                #     bonuses[very_early] = -5
             
             # Apply modifications for reserves and overnights for ALL crew members
             # regardless of whether they have a time preference
@@ -897,7 +904,7 @@ def fca(base, seat, d1, d2, seconds):
             char_val = cp.sum(pcha)
         else:
             char_val = 0
-        objective = cp.Maximize(.15*cp.sum(cdos) - .25*cp.sum(chnk) + 10*cp.sum(cp.multiply(po,sen*10)) + 2*cp.sum(cp.multiply(pover,sen*5)) + .8*cp.sum(cp.multiply(ptime,(sen**10)*4)) + 2.5*res_val + char_val)
+        objective = cp.Maximize(.15*cp.sum(cdos) - .25*cp.sum(chnk) + 10*cp.sum(cp.multiply(po,sen*10)) + 2*cp.sum(cp.multiply(pover,sen*5)) + .8*cp.sum(cp.multiply(ptime,sen*4)) + 2.5*res_val + char_val)
         #objective = cp.Maximize(3*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + cp.sum(cp.multiply(ptime,sen)) + 4*cp.sum(ppto) + 1.5*res_val + char_val)
         #objective = cp.Maximize(1.5*cp.sum(cp.multiply(po,sen)) + 1.2*cp.sum(cp.multiply(pover,sen)) + cp.sum(cp.multiply(ptime,sen)) + 3*cp.sum(ppto) + 1.1*res_val + char_val)
         #objective = cp.Maximize(cp.sum(po) + cp.sum(pover) + cp.sum(ptime) + cp.sum(ppto) + cp.sum(cp.minimum(pres, np.ones(n_c)*3)))# - cp.max(over) + cp.min(over))# + cp.sum(ppto))
