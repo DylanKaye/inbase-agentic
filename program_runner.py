@@ -104,7 +104,7 @@ async def get_intent(user_input: str) -> IntentResult:
                 {"role": "system", "content": """
     Extract the command type and arguments. The command type must be exactly one of: RUN, ANALYZE, STATUS, or UPLOAD.
     Only extract base and seat if they exactly match these values:
-    Valid bases: BUR, DAL, LAS, SCF, OPF, OAK, SNA
+    Valid bases: BUR, DAL, HPN, LAS, SCF, OPF, OAK, SNA
     Valid seats: CA, FO, FA
     Do not extract any other values as base or seat.
     Never extract partial matches or substrings.
