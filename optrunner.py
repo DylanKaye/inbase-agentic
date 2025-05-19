@@ -32,10 +32,10 @@ try:
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"Starting optimization run for {base} {seat} at {current_time}")
         
-        if seat in ['CA','FO','FA'] and base in ['DAL','BUR','LAS','SNA','OPF','SCF','OAK']: 
+        if seat in ['CA','FO','FA'] and base in ['DAL','BUR','LAS','HPN','SNA','OPF','SCF','OAK']: 
             if base == 'DAL':
                 ttr = 300
-            elif base in ['BUR','LAS']:
+            elif base in ['BUR','LAS','HPN']:
                 ttr = 300
             else:
                 ttr = 300
