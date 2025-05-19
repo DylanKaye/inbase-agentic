@@ -108,7 +108,7 @@ async def get_intent(user_input: str) -> IntentResult:
     Valid seats: CA, FO, FA
     Do not extract any other values as base or seat.
     Never extract partial matches or substrings.
-    If a word is not an exact match (ignoring case) to these values, do not extract it.
+    If a word is not an exact match (ignoring case) to these values, do not extract it.DAL
     The word "all" should only be extracted as a base for RUN and STATUS commands.
     
     Example: "check status BUR FA" → STATUS, base=BUR, seat=FA
@@ -144,7 +144,7 @@ async def determine_intent(user_input: str) -> tuple[ProgramType, Optional[str],
         return None, None, None
     
     # Define valid bases and seats
-    VALID_BASES = ['bur', 'dal', 'las', 'scf', 'opf', 'oak', 'sna']
+    VALID_BASES = ['bur', 'dal', 'hpn', 'las', 'scf', 'opf', 'oak', 'sna']
     VALID_SEATS = ['ca', 'fo', 'fa']
     
     # Handle special "all" commands first
