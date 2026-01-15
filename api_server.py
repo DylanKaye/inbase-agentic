@@ -103,7 +103,7 @@ async def process_command(payload: dict):
         
         if program_type == ProgramType.STATUS:
             all_statuses = []
-            for base in ["BUR", "DAL", "LAS", "SCF", "OPF", "OAK", "SNA"]:
+            for base in ["BUR", "DAL", "HPN", "LAS", "SCF", "OPF", "OAK", "SNA"]:
                 try:
                     # Check if optimization is running
                     key = f"{base}-{seat_arg}"
@@ -137,7 +137,7 @@ async def process_command(payload: dict):
             return {"all_statuses": all_statuses}
         elif program_type == ProgramType.RUN:
             run_statuses = []
-            for base in ["BUR", "DAL", "LAS", "SCF", "OPF", "OAK", "SNA"]:
+            for base in ["BUR", "DAL", "HPN", "LAS", "SCF", "OPF", "OAK", "SNA"]:
                 try:
                     key = f"{base}-{seat_arg}"
                     # Check if optimization is already running

@@ -887,12 +887,14 @@ def fca(base, seat, d1, d2, seconds):
         #charters
         if len(c_idxs) > 0:
             for c in range(n_c):
-                pref = c >= n_c - 5
                 idxs = np.array(c_idxs)
-                if pref == 1:
-                    constraints += [pcha[c] == cp.sum(xp[c,idxs])]
-                else:
-                    constraints += [pcha[c] == 0]
+                constraints += [pcha[c] == cp.sum(xp[c,idxs])]
+                # pref = c >= n_c - 5
+                # idxs = np.array(c_idxs)
+                # if pref == 1:
+                #     constraints += [pcha[c] == cp.sum(xp[c,idxs])]
+                # else:
+                #     constraints += [pcha[c] == 0]
 
         #rest time
         rest_constraints = []
@@ -939,7 +941,7 @@ def fca(base, seat, d1, d2, seconds):
         else:
             res_val = 0
         if len(c_idxs) > 0:
-            char_val = cp.sum(pcha)
+            char_val = cp.sum(cp.multiply(pcha,sen*10))
         else:
             char_val = 0
         objective = cp.Maximize(.15*cp.sum(cdos) - .25*cp.sum(chnk) + 10*cp.sum(cp.multiply(po,sen*10)) + 5*cp.sum(cp.multiply(pover,(sen**2)*20)) + 5*cp.sum(cp.multiply(excov,sen*10)) + 1*cp.sum(cp.multiply(ptime,sen*5)) + 5*res_val + char_val)
