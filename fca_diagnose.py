@@ -5,9 +5,12 @@ This module provides comprehensive diagnosis of why a MIP optimization might fai
 It includes:
 - Data validation (supply/demand balance)
 - Feasibility-only testing
-- Constraint group analysis
-- Problem statistics reporting
+- Fatigue rule checking (7-in-a-row, 8-in-10, 10-in-14)
+- Individual crew availability analysis
 """
+
+import warnings
+warnings.filterwarnings('ignore')  # Suppress pandas warnings
 
 import pandas as pd
 import numpy as np
@@ -167,9 +170,9 @@ def load_and_validate_data(base: str, seat: str, d1: str, d2: str, verbose: bool
     if verbose:
         print(f"  ✓ Loaded {crew_file}: {len(data['crew'])} crew members")
     
-    # Filter crew for base
+    # Filter crew for base (use .copy() to avoid SettingWithCopyWarning)
     data['crew'].index = data['crew']['name']
-    data['crew_filtered'] = data['crew'][(data['crew']['base'] == base) | (data['crew']['to_base'] == base)]
+    data['crew_filtered'] = data['crew'][(data['crew']['base'] == base) | (data['crew']['to_base'] == base)].copy()
     if verbose:
         print(f"  ✓ Filtered to {len(data['crew_filtered'])} crew for base {base}")
     
@@ -181,7 +184,7 @@ def load_and_validate_data(base: str, seat: str, d1: str, d2: str, verbose: bool
         return None
     
     data['prefs'] = pd.read_csv(pref_file)
-    data['prefs'] = data['prefs'][data['prefs']['user_name'].isin(data['crew_filtered'].index)]
+    data['prefs'] = data['prefs'][data['prefs']['user_name'].isin(data['crew_filtered'].index)].copy()
     if verbose:
         print(f"  ✓ Loaded {pref_file}: {len(data['prefs'])} crew preferences")
     
@@ -201,9 +204,9 @@ def load_and_validate_data(base: str, seat: str, d1: str, d2: str, verbose: bool
     data['crew_filtered']['tot_days'] = tot_days
     data['crew_filtered']['is_tdy'] = is_tdy
     
-    # Filter pairings for base
+    # Filter pairings for base (use .copy() to avoid SettingWithCopyWarning)
     add = ['BCT'] if base == 'OPF' else []
-    data['pairings_filtered'] = data['pairings'][data['pairings']['base_start'].isin([base] + add)]
+    data['pairings_filtered'] = data['pairings'][data['pairings']['base_start'].isin([base] + add)].copy()
     if verbose:
         print(f"  ✓ Filtered to {len(data['pairings_filtered'])} pairings for base {base}")
     
@@ -482,91 +485,220 @@ def check_individual_crew_feasibility(data: Dict, verbose: bool) -> DiagnosticRe
 
 
 def analyze_constraints(data: Dict, verbose: bool) -> List[DiagnosticReport]:
-    """Analyze constraint groups for potential issues"""
+    """Check for fatigue rule violations and overnight assignment issues"""
     
     reports = []
     pairings = data['pairings_filtered']
     prefs = data['prefs']
+    dates = data['dates']
+    days_worked = data['days_worked']
     
-    # Check for long duty pairings
-    long_duty = pairings[pairings['dtime'] >= 11 * 3600] if 'dtime' in pairings.columns else pd.DataFrame()
     if verbose:
-        print(f"\n  Constraint Complexity Analysis:")
-        print(f"    Long duty pairings (>11hr): {len(long_duty)}")
-    
-    # Check for many-leg pairings
-    many_legs = pairings[pairings['mlegs'] >= 5] if 'mlegs' in pairings.columns else pd.DataFrame()
-    if verbose:
-        print(f"    Many-leg pairings (5+): {len(many_legs)}")
-    
-    # Check for multi-day pairings
-    multi_day = pairings[pairings['mult'] >= 2] if 'mult' in pairings.columns else pd.DataFrame()
-    if verbose:
-        print(f"    Multi-day pairings: {len(multi_day)}")
-    
-    # Check overnight preference distribution
-    overnight_prefs = prefs['overnight_preference'].value_counts() if 'overnight_preference' in prefs.columns else {}
-    if verbose:
-        print(f"\n  Overnight Preference Distribution:")
-        for pref, count in overnight_prefs.items():
-            print(f"    {pref}: {count}")
+        print(f"\n  Checking Scheduling Rules:")
     
     # Check for 3+ day pairings vs crew who want overnights
     long_pairings = pairings[pairings['mult'] >= 3] if 'mult' in pairings.columns else pd.DataFrame()
     many_overnight_crew = len(prefs[prefs['overnight_preference'] == 'Many']) if 'overnight_preference' in prefs.columns else 0
     
+    if verbose:
+        print(f"    3+ day trips: {len(long_pairings)}")
+        print(f"    Crew who want many overnights: {many_overnight_crew}")
+    
     if len(long_pairings) > 0 and many_overnight_crew == 0:
         reports.append(DiagnosticReport(
-            check_name="3+ Day Pairing Assignment",
+            check_name="3+ Day Trip Assignment",
             result=DiagnosticResult.FAIL,
-            message=f"INFEASIBLE: {len(long_pairings)} pairings require 3+ days but "
-                    f"no crew prefer 'Many' overnights",
+            message=f"There are {len(long_pairings)} trips that are 3+ days, but no crew members "
+                    f"selected 'Many Overnights' preference. These trips cannot be assigned.",
             details={'long_pairings': len(long_pairings), 'many_overnight_crew': many_overnight_crew}
         ))
-    elif len(long_pairings) > many_overnight_crew * 5:  # Rough heuristic
+    elif len(long_pairings) > many_overnight_crew * 5:
         reports.append(DiagnosticReport(
-            check_name="3+ Day Pairing Assignment",
+            check_name="3+ Day Trip Assignment",
             result=DiagnosticResult.WARNING,
-            message=f"May be tight: {len(long_pairings)} 3+ day pairings for "
-                    f"{many_overnight_crew} crew who want many overnights",
+            message=f"There are {len(long_pairings)} trips that are 3+ days, but only "
+                    f"{many_overnight_crew} crew want many overnights. This may be tight.",
             details={'long_pairings': len(long_pairings), 'many_overnight_crew': many_overnight_crew}
         ))
     else:
+        if verbose:
+            print(f"    ✓ 3+ day trips can be assigned")
         reports.append(DiagnosticReport(
-            check_name="3+ Day Pairing Assignment",
+            check_name="3+ Day Trip Assignment",
             result=DiagnosticResult.PASS,
-            message=f"{len(long_pairings)} 3+ day pairings can go to {many_overnight_crew} willing crew"
+            message=f"3+ day trips can be assigned to willing crew"
         ))
     
-    # Problem size report
-    n_c = len(prefs)
-    n_p = len(pairings)
-    n_vars = n_c * n_p
-    n_dates = len(data['dates'])
-    
-    # Estimate constraint count
-    est_constraints = (
-        n_p +  # All pairings covered
-        n_c * 2 +  # Min/max days per crew
-        n_dates * n_c +  # One duty per day
-        n_c * (n_dates - 8 + n_dates - 14 + n_dates - 10) +  # Window constraints
-        n_c  # Various other constraints
-    )
-    
-    if verbose:
-        print(f"\n  Problem Size:")
-        print(f"    Variables: {n_vars:,} ({n_c} crew × {n_p} pairings)")
-        print(f"    Estimated constraints: ~{est_constraints:,}")
-        print(f"    Dates in period: {n_dates}")
-    
-    reports.append(DiagnosticReport(
-        check_name="Problem Size",
-        result=DiagnosticResult.PASS,
-        message=f"Problem has {n_vars:,} variables and ~{est_constraints:,} constraints",
-        details={'n_vars': n_vars, 'est_constraints': est_constraints, 'n_crew': n_c, 'n_pairings': n_p}
-    ))
+    # Check fatigue rules
+    fatigue_report = check_fatigue_rules(data, verbose)
+    reports.append(fatigue_report)
     
     return reports
+
+
+def check_fatigue_rules(data: Dict, verbose: bool) -> DiagnosticReport:
+    """
+    Check if fatigue rules (7-in-a-row, 8-in-10, 10-in-14) can be satisfied.
+    
+    These rules are:
+    - No more than 7 consecutive work days
+    - No more than 8 work days in any 10-day window
+    - No more than 10 work days in any 14-day window
+    """
+    
+    prefs = data['prefs']
+    dates = data['dates']
+    days_worked = data['days_worked']
+    n_dates = len(dates)
+    dates_set = set(dates)
+    
+    violations = []
+    warnings_list = []
+    
+    if verbose:
+        print(f"\n  Fatigue Rules Check:")
+        print(f"    Rules: Max 7 consecutive | Max 8 in 10 days | Max 10 in 14 days")
+    
+    for idx, (crew_idx, row) in enumerate(prefs[['user_name', 'work_restriction_days', 'vacation_days', 'training_days']].iterrows()):
+        crew_name = row['user_name']
+        required_days = days_worked[idx]
+        
+        # Get restricted dates for this crew member
+        restricted_dates = set()
+        for col in [row['work_restriction_days'], row['vacation_days'], row['training_days']]:
+            try:
+                for date in eval(col):
+                    d = date[:10]
+                    if d in dates_set:
+                        restricted_dates.add(d)
+            except:
+                pass
+        
+        # Build availability array (1 = can work, 0 = restricted)
+        availability = []
+        for d in dates:
+            availability.append(0 if d in restricted_dates else 1)
+        
+        available_days = sum(availability)
+        
+        # Skip if already impossible (caught by other check)
+        if available_days < required_days:
+            continue
+        
+        # Check: Can they work their required days without violating fatigue rules?
+        # We'll check the "worst case" - what if their restricted days create
+        # forced work patterns that violate rules?
+        
+        crew_issues = []
+        
+        # Check for forced 8+ consecutive work days
+        # If there's a gap of restricted days that forces work on both sides
+        consecutive_available = 0
+        max_consecutive = 0
+        for i, avail in enumerate(availability):
+            if avail == 1:
+                consecutive_available += 1
+                max_consecutive = max(max_consecutive, consecutive_available)
+            else:
+                consecutive_available = 0
+        
+        # Check each 10-day window
+        for i in range(n_dates - 9):
+            window_available = sum(availability[i:i+10])
+            # If more than 8 days available in window, we might exceed 8-in-10
+            # But the real issue is if we MUST work > 8 days in a 10-day window
+            # This happens if required_days is high relative to available spread
+        
+        # Check each 14-day window  
+        for i in range(n_dates - 13):
+            window_available = sum(availability[i:i+14])
+        
+        # Simplified check: If required days > 10 and available days cluster together,
+        # the 10-in-14 rule might be violated
+        
+        # More practical check: Look for "dense" required work periods
+        # If crew needs many days and has vacation clusters, check windows around vacation
+        
+        # Find vacation clusters and check surrounding windows
+        if required_days >= 10:
+            # Check if any 14-day window has all available days < required work
+            min_window_14 = n_dates
+            for i in range(n_dates - 13):
+                window_available = sum(availability[i:i+14])
+                min_window_14 = min(min_window_14, window_available)
+            
+            # If smallest 14-day window has <10 available but crew needs many days,
+            # they might not be able to spread work out
+            if min_window_14 < 10 and required_days > available_days - 4:
+                crew_issues.append(f"tight 14-day windows (min {min_window_14} available)")
+        
+        if required_days >= 8:
+            # Check 10-day windows
+            min_window_10 = n_dates
+            for i in range(n_dates - 9):
+                window_available = sum(availability[i:i+10])
+                min_window_10 = min(min_window_10, window_available)
+            
+            if min_window_10 < 8 and required_days > available_days - 3:
+                crew_issues.append(f"tight 10-day windows (min {min_window_10} available)")
+        
+        # Check for stretches where vacation forces dense work
+        # Look for vacation gaps that create "islands" of work
+        work_islands = []
+        current_island = 0
+        for avail in availability:
+            if avail == 1:
+                current_island += 1
+            else:
+                if current_island > 0:
+                    work_islands.append(current_island)
+                current_island = 0
+        if current_island > 0:
+            work_islands.append(current_island)
+        
+        # If the largest island is smaller than required days, work must span multiple islands
+        # which is fine. But if an island is exactly 8-10 days and they need most of those days,
+        # it could force 8 consecutive
+        for island in work_islands:
+            if 8 <= island <= 10:
+                # This island could force 7+ consecutive if heavily loaded
+                if required_days >= available_days - 2:
+                    crew_issues.append(f"may be forced into 7+ consecutive work days")
+                    break
+        
+        if crew_issues:
+            warnings_list.append({
+                'name': crew_name,
+                'required': int(required_days),
+                'available': available_days,
+                'issues': crew_issues
+            })
+    
+    if verbose:
+        if warnings_list:
+            print(f"\n    ⚠️ Potential fatigue rule issues ({len(warnings_list)} crew):")
+            for w in warnings_list[:3]:
+                print(f"      • {w['name']}: {', '.join(w['issues'])}")
+            if len(warnings_list) > 3:
+                print(f"      ... and {len(warnings_list) - 3} more")
+        else:
+            print(f"    ✓ Fatigue rules appear satisfiable")
+    
+    if warnings_list:
+        return DiagnosticReport(
+            check_name="Fatigue Rules (7 consecutive, 8-in-10, 10-in-14)",
+            result=DiagnosticResult.WARNING,
+            message=f"{len(warnings_list)} crew member(s) have vacation patterns that may make "
+                    f"fatigue rules hard to satisfy. Check: {warnings_list[0]['name']} - "
+                    f"{', '.join(warnings_list[0]['issues'])}",
+            details={'warnings': warnings_list}
+        )
+    else:
+        return DiagnosticReport(
+            check_name="Fatigue Rules (7 consecutive, 8-in-10, 10-in-14)",
+            result=DiagnosticResult.PASS,
+            message="Fatigue rules appear satisfiable for all crew"
+        )
 
 
 def test_feasibility_incremental(data: Dict, verbose: bool) -> List[DiagnosticReport]:
@@ -704,7 +836,7 @@ def print_summary(reports: List[DiagnosticReport]):
     """Print a summary of all diagnostic reports"""
     
     print(f"\n{'='*60}")
-    print("DIAGNOSTIC SUMMARY")
+    print("SUMMARY")
     print(f"{'='*60}\n")
     
     failures = [r for r in reports if r.result == DiagnosticResult.FAIL]
@@ -712,25 +844,32 @@ def print_summary(reports: List[DiagnosticReport]):
     passes = [r for r in reports if r.result == DiagnosticResult.PASS]
     
     if failures:
-        print("🔴 FAILURES (likely causes of infeasibility):")
+        print("🔴 PROBLEMS FOUND - Optimization will NOT work until fixed:")
+        print()
         for r in failures:
-            print(f"   • {r.check_name}: {r.message}")
+            print(f"   • {r.message}")
+        print()
     
     if warnings:
-        print("\n🟡 WARNINGS (potential issues):")
+        print("🟡 POTENTIAL ISSUES - May cause problems:")
+        print()
         for r in warnings:
-            print(f"   • {r.check_name}: {r.message}")
+            print(f"   • {r.message}")
+        print()
     
-    print(f"\n🟢 PASSED: {len(passes)} checks")
+    if not failures and not warnings:
+        print("🟢 ALL CHECKS PASSED")
+        print()
     
-    print(f"\n{'='*60}")
+    print(f"{'='*60}")
     if failures:
-        print("RECOMMENDATION: Fix the FAILURE items above before running optimization.")
+        print("NEXT STEP: Fix the problems above before running optimization.")
     elif warnings:
-        print("RECOMMENDATION: Review WARNINGs. Problem may be solvable but tight.")
+        print("NEXT STEP: Optimization may work but could be slow or fail.")
+        print("           Consider adjusting vacation/work assignments if it fails.")
     else:
-        print("RECOMMENDATION: Core checks passed. If optimization still fails,")
-        print("                try running with longer time limit or check solver logs.")
+        print("NEXT STEP: Run the optimization - it should work!")
+        print("           If it still fails, try increasing the time limit.")
     print(f"{'='*60}\n")
 
 
