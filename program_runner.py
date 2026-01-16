@@ -20,6 +20,7 @@ class ProgramType(str, Enum):
     ANALYZE = "ANALYZE"
     STATUS = "STATUS"
     UPLOAD = "UPLOAD"
+    DIAGNOSE = "DIAGNOSE"
 
 class ProgramResult(BaseModel):
     command: str = Field(..., description="The command that was executed")
@@ -102,14 +103,16 @@ async def get_intent(user_input: str) -> IntentResult:
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": """
-    Extract the command type and arguments. The command type must be exactly one of: RUN, ANALYZE, STATUS, or UPLOAD.
+    Extract the command type and arguments. The command type must be exactly one of: RUN, ANALYZE, STATUS, UPLOAD, or DIAGNOSE.
     Only extract base and seat if they exactly match these values:
     Valid bases: BUR, DAL, HPN, LAS, SCF, OPF, OAK, SNA
     Valid seats: CA, FO, FA
     Do not extract any other values as base or seat.
     Never extract partial matches or substrings.
-    If a word is not an exact match (ignoring case) to these values, do not extract it.DAL
+    If a word is not an exact match (ignoring case) to these values, do not extract it.
     The word "all" should only be extracted as a base for RUN and STATUS commands.
+    
+    DIAGNOSE is used when the user wants to debug, diagnose, troubleshoot, or figure out why an optimization failed.
     
     Example: "check status BUR FA" → STATUS, base=BUR, seat=FA
     Example: "check status xyz FA" → STATUS, base=None, seat=FA
@@ -117,9 +120,13 @@ async def get_intent(user_input: str) -> IntentResult:
     Example: "upload all FA to noc" → UPLOAD, base=None, seat=FA
     Example: "upload noc FA" → UPLOAD, base=None, seat=FA
     Example: "Hey man. Upload BUR FA for me" → UPLOAD, base=BUR, seat=FA
+    Example: "diagnose DAL FO" → DIAGNOSE, base=DAL, seat=FO
+    Example: "why did DAL FO fail" → DIAGNOSE, base=DAL, seat=FO
+    Example: "debug optimization for BUR CA" → DIAGNOSE, base=BUR, seat=CA
+    Example: "troubleshoot SNA FA" → DIAGNOSE, base=SNA, seat=FA
     
     Return JSON with these fields:
-    - intent: The command type (RUN/ANALYZE/STATUS/UPLOAD)
+    - intent: The command type (RUN/ANALYZE/STATUS/UPLOAD/DIAGNOSE)
     - base_arg: The base argument if valid, or null
     - seat_arg: The seat argument if valid, or null
     """},
@@ -166,6 +173,13 @@ async def determine_intent(user_input: str) -> tuple[ProgramType, Optional[str],
         seat = words[2]
         if base in VALID_BASES and seat in VALID_SEATS:
             return ProgramType.RUN, base.upper(), seat.upper()
+    
+    # Handle simple "diagnose base seat" format
+    if len(words) == 3 and words[0] == 'diagnose':
+        base = words[1]
+        seat = words[2]
+        if base in VALID_BASES and seat in VALID_SEATS:
+            return ProgramType.DIAGNOSE, base.upper(), seat.upper()
 
     # Convert potential base/seat values to uppercase while preserving the rest
     words = user_input.split()

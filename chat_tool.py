@@ -3,10 +3,13 @@ from program_runner import execute_program, ProgramResult
 from pydantic_ai import Agent, RunContext
 import asyncio
 import os
+import io
+import sys
 from datetime import datetime
 from typing import Dict
 import warnings
 from utils import get_date_range
+from fca_diagnose import diagnose_optimization, DiagnosticResult
 warnings.filterwarnings("ignore")
 # Track running optimizations
 running_optimizations: Dict[str, asyncio.subprocess.Process] = {}
@@ -103,6 +106,41 @@ async def upload_to_noc(base_arg: str, seat_arg: str):
     except Exception as e:
         print(f"\nError during upload: {str(e)}")
 
+
+async def run_diagnose(base_arg: str, seat_arg: str) -> str:
+    """Run diagnostic analysis for the given base and seat"""
+    try:
+        # Get date range
+        d1, d2 = get_date_range()
+        
+        # Capture stdout to return as string
+        old_stdout = sys.stdout
+        sys.stdout = captured_output = io.StringIO()
+        
+        try:
+            # Run the diagnostic
+            reports = diagnose_optimization(base_arg, seat_arg, d1, d2, verbose=True)
+            
+            # Get the captured output
+            output = captured_output.getvalue()
+        finally:
+            sys.stdout = old_stdout
+        
+        # Add summary of actionable items
+        failures = [r for r in reports if r.result == DiagnosticResult.FAIL]
+        warnings_list = [r for r in reports if r.result == DiagnosticResult.WARNING]
+        
+        if failures:
+            output += "\n\n⚠️ ACTION REQUIRED:\n"
+            for r in failures:
+                output += f"  • {r.message}\n"
+        
+        return output
+        
+    except Exception as e:
+        import traceback
+        return f"Error running diagnostics: {str(e)}\n{traceback.format_exc()}"
+
 async def process_all_bases(program_type: ProgramType, seat_arg: str):
     """Process command for all bases with given seat"""
     for base in BASES:
@@ -136,6 +174,7 @@ async def chat_interface():
     print("2. Analyze results (e.g., 'analyze results for base bur seat fa')")
     print("3. Check status (e.g., 'check status bur fa' or 'check all fa')")
     print("4. Upload to NOC (e.g., 'upload bur fa to noc' or 'upload all fa to noc')")
+    print("5. Diagnose failures (e.g., 'diagnose dal fo' or 'why did dal fo fail')")
     print("\nNote: Optimizations run in background. Use status to check progress.")
     
     while True:
@@ -174,6 +213,11 @@ async def chat_interface():
         
         elif program_type == ProgramType.UPLOAD:
             await upload_to_noc(base_arg, seat_arg)
+        
+        elif program_type == ProgramType.DIAGNOSE:
+            print("Running diagnostics...")
+            output = await run_diagnose(base_arg, seat_arg)
+            print(output)
         
         else:
             print(f"Unexpected program type: {program_type}")

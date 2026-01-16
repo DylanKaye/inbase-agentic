@@ -12,7 +12,8 @@ from chat_tool import (
     upload_to_noc, 
     process_all_bases, 
     view_results, 
-    running_optimizations
+    running_optimizations,
+    run_diagnose
 )
 from program_runner import ProgramType, determine_intent
 
@@ -39,6 +40,12 @@ You can interact with this tool by sending commands with the following formats:
 4. Upload to NOC:
    - Command: "upload <base> <seat> to noc"
    - Example: "upload BUR FA to noc"
+
+5. Diagnose Failures:
+   - Command: "diagnose <base> <seat>"
+   - Example: "diagnose DAL FO"
+   - Use this to find out why an optimization failed
+   - Also works with: "why did DAL FO fail", "debug BUR CA", "troubleshoot SNA FA"
 
 Simply type "help" to receive these instructions.
 """
@@ -212,6 +219,11 @@ async def process_command(payload: dict):
         print(f"Uploading results for base={base_arg}, seat={seat_arg}")  # Debug log
         await upload_to_noc(base_arg, seat_arg)
         logs.append(f"Uploaded results for base={base_arg}, seat={seat_arg} to NOC.")
+
+    elif program_type == ProgramType.DIAGNOSE:
+        print(f"Running diagnostics for base={base_arg}, seat={seat_arg}")  # Debug log
+        diagnose_output = await run_diagnose(base_arg, seat_arg)
+        return {"logs": [diagnose_output]}
 
     else:
         print(f"Unexpected program type: {program_type}")  # Debug log
