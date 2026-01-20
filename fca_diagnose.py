@@ -106,6 +106,10 @@ def diagnose_optimization(base: str, seat: str, d1: str, d2: str, verbose: bool 
         individual_report = check_individual_crew_feasibility(data, verbose)
         reports.append(individual_report)
         
+        # Pairing Coverage Check - are there pairings that NO crew can take?
+        pairing_coverage_report = check_pairing_vacation_coverage(data, verbose)
+        reports.append(pairing_coverage_report)
+        
         # TDY Contiguity Check (TDY crew must work in one block)
         tdy_report = check_tdy_contiguity(data, verbose)
         reports.append(tdy_report)
@@ -600,6 +604,149 @@ def check_individual_crew_feasibility(data: Dict, verbose: bool) -> DiagnosticRe
             result=DiagnosticResult.PASS,
             message="All crew have sufficient available days for their required work",
             details={'impossible_crew': [], 'tight_crew': []}
+        )
+
+
+def check_pairing_vacation_coverage(data: Dict, verbose: bool) -> DiagnosticReport:
+    """
+    Check if there are any pairings that NO crew member can be assigned to
+    because everyone is blocked by vacation on at least one day the pairing touches.
+    
+    This is the key check for vacation-related infeasibility!
+    """
+    
+    pairings = data['pairings_filtered'].copy()
+    prefs = data['prefs']
+    dates = data['dates']
+    dates_set = set(dates)
+    
+    # Build vacation sets for each crew member
+    crew_vacation = {}
+    for idx, row in prefs[['user_name', 'work_restriction_days', 'vacation_days', 'training_days']].iterrows():
+        crew_name = row['user_name']
+        blocked_dates = set()
+        for col in [row['work_restriction_days'], row['vacation_days'], row['training_days']]:
+            try:
+                for date in eval(col):
+                    d = date[:10]
+                    if d in dates_set:
+                        blocked_dates.add(d)
+            except:
+                pass
+        crew_vacation[crew_name] = blocked_dates
+    
+    # Build a mapping of which dates each pairing touches
+    pairings['dalidx'] = list(range(len(pairings)))
+    
+    # For each pairing, find all dates it touches
+    pairing_dates = {}
+    for idx, row in pairings.iterrows():
+        pairing_id = row['dalidx']
+        d1 = row['d1']
+        d2 = row['d2'] if pd.notna(row['d2']) else d1
+        mult = row['mult'] if 'mult' in row else 1
+        
+        # Get all dates this pairing spans
+        touched_dates = set()
+        if d1 in dates_set:
+            touched_dates.add(d1)
+        if d2 in dates_set and d2 != d1:
+            touched_dates.add(d2)
+        
+        # For multi-day pairings, include middle days
+        if mult >= 3 and d1 in dates_set and d2 in dates_set:
+            try:
+                d1_idx = dates.index(d1)
+                d2_idx = dates.index(d2)
+                for i in range(d1_idx, d2_idx + 1):
+                    if i < len(dates):
+                        touched_dates.add(dates[i])
+            except ValueError:
+                pass
+        
+        pairing_dates[pairing_id] = touched_dates
+    
+    # Check each pairing: how many crew members can be assigned?
+    uncovered_pairings = []
+    low_coverage_pairings = []
+    
+    crew_names = list(crew_vacation.keys())
+    n_crew = len(crew_names)
+    
+    for pairing_id, touched in pairing_dates.items():
+        if not touched:
+            continue
+            
+        # Count how many crew can take this pairing (not blocked on any touched date)
+        eligible_count = 0
+        for crew_name in crew_names:
+            blocked = crew_vacation[crew_name]
+            # Crew is eligible if none of their blocked dates overlap with pairing dates
+            if not touched.intersection(blocked):
+                eligible_count += 1
+        
+        pairing_info = pairings[pairings['dalidx'] == pairing_id].iloc[0]
+        
+        if eligible_count == 0:
+            uncovered_pairings.append({
+                'idx': pairing_info.get('idx', f'Pairing {pairing_id}'),
+                'd1': pairing_info['d1'],
+                'd2': pairing_info.get('d2', ''),
+                'mult': pairing_info.get('mult', 1),
+                'touched_dates': list(touched),
+                'eligible_crew': 0
+            })
+        elif eligible_count <= 2:
+            low_coverage_pairings.append({
+                'idx': pairing_info.get('idx', f'Pairing {pairing_id}'),
+                'd1': pairing_info['d1'],
+                'eligible_crew': eligible_count
+            })
+    
+    if verbose:
+        print(f"\n  Pairing Vacation Coverage Check:")
+        print(f"    Total pairings: {len(pairings)}")
+        print(f"    Crew members: {n_crew}")
+        
+        if uncovered_pairings:
+            print(f"\n    ⚠️ UNCOVERED PAIRINGS ({len(uncovered_pairings)} pairings NO crew can take):")
+            for p in uncovered_pairings[:5]:
+                dates_str = ', '.join(p['touched_dates'][:3])
+                if len(p['touched_dates']) > 3:
+                    dates_str += f"... ({len(p['touched_dates'])} days)"
+                print(f"      • {p['idx']} ({p['d1']} to {p['d2']}, {p['mult']} days)")
+                print(f"        Touches dates: {dates_str}")
+                print(f"        All {n_crew} crew are blocked on at least one of these dates!")
+            if len(uncovered_pairings) > 5:
+                print(f"      ... and {len(uncovered_pairings) - 5} more uncovered pairings")
+        elif low_coverage_pairings:
+            print(f"    ⚠️ {len(low_coverage_pairings)} pairings have only 1-2 eligible crew")
+        else:
+            print(f"    ✓ All pairings have at least one eligible crew member")
+    
+    if uncovered_pairings:
+        return DiagnosticReport(
+            check_name="Pairing Vacation Coverage",
+            result=DiagnosticResult.FAIL,
+            message=f"{len(uncovered_pairings)} pairing(s) cannot be assigned because ALL crew members "
+                    f"are blocked by vacation on at least one day. "
+                    f"First: {uncovered_pairings[0]['idx']} ({uncovered_pairings[0]['d1']}) - "
+                    f"no crew available.",
+            details={'uncovered_pairings': uncovered_pairings, 'low_coverage': low_coverage_pairings}
+        )
+    elif low_coverage_pairings:
+        return DiagnosticReport(
+            check_name="Pairing Vacation Coverage",
+            result=DiagnosticResult.WARNING,
+            message=f"{len(low_coverage_pairings)} pairing(s) have only 1-2 eligible crew members. "
+                    f"This makes scheduling very tight.",
+            details={'low_coverage': low_coverage_pairings}
+        )
+    else:
+        return DiagnosticReport(
+            check_name="Pairing Vacation Coverage",
+            result=DiagnosticResult.PASS,
+            message="All pairings have at least one eligible crew member (not blocked by vacation)"
         )
 
 
