@@ -99,6 +99,14 @@ def diagnose_optimization(base: str, seat: str, d1: str, d2: str, verbose: bool 
         individual_report = check_individual_crew_feasibility(data, verbose)
         reports.append(individual_report)
         
+        # TDY Contiguity Check (TDY crew must work in one block)
+        tdy_report = check_tdy_contiguity(data, verbose)
+        reports.append(tdy_report)
+        
+        # Long Duty Limits Check
+        long_duty_report = check_long_duty_limits(data, verbose)
+        reports.append(long_duty_report)
+        
     except Exception as e:
         reports.append(DiagnosticReport(
             check_name="Data Validation",
@@ -272,18 +280,62 @@ def check_supply_demand_balance(data: Dict, verbose: bool) -> DiagnosticReport:
 
 
 def check_daily_coverage(data: Dict, verbose: bool) -> DiagnosticReport:
-    """Check if each day has enough crew to cover work"""
+    """
+    Check if each day has enough crew to cover work.
     
-    pairings = data['pairings_filtered']
+    This builds a date-to-pairing map similar to fca.py's dtemap to properly
+    count multi-day pairings that span across days.
+    """
+    
+    pairings = data['pairings_filtered'].copy()
     prefs = data['prefs']
     dates = data['dates']
     n_c = len(prefs)
     
-    # Count work per day
-    daily_work = {}
-    for d in dates:
-        count = len(pairings[(pairings['d1'] == d) | (pairings['d2'] == d)])
-        daily_work[d] = count
+    # Build date mapping similar to fca.py
+    # A pairing "touches" a day if:
+    # - d1 == day OR d2 == day (for 1-2 day pairings)
+    # - day is between d1 and d2 (for multi-day pairings)
+    pairings['dalidx'] = list(range(len(pairings)))
+    
+    dtemap = {}
+    for ind, d in enumerate(dates):
+        # Pairings that start or end on this day
+        tmp = pairings[(pairings['d1'] == d) | (pairings['d2'] == d)]
+        touching = tmp['dalidx'].values.tolist()
+        
+        # Also check for 3-day pairings where this day is in the middle
+        try:
+            if ind > 0 and ind < len(dates) - 1:
+                tmp2 = pairings[(pairings['d1'] == dates[ind-1]) & 
+                               (pairings['d2'] == dates[ind+1]) & 
+                               (pairings['mult'] == 3)]['dalidx'].values.tolist()
+                touching.extend(tmp2)
+        except:
+            pass
+        
+        # 4-day pairings
+        try:
+            if ind > 0 and ind < len(dates) - 2:
+                tmp3 = pairings[(pairings['d1'] == dates[ind-1]) & 
+                               (pairings['d2'] == dates[ind+2]) & 
+                               (pairings['mult'] == 4)]['dalidx'].values.tolist()
+                touching.extend(tmp3)
+        except:
+            pass
+        try:
+            if ind > 1 and ind < len(dates) - 1:
+                tmp4 = pairings[(pairings['d1'] == dates[ind-2]) & 
+                               (pairings['d2'] == dates[ind+1]) & 
+                               (pairings['mult'] == 4)]['dalidx'].values.tolist()
+                touching.extend(tmp4)
+        except:
+            pass
+            
+        dtemap[d] = list(set(touching))  # Remove duplicates
+    
+    # Count work per day (number of unique pairings touching that day)
+    daily_work = {d: len(dtemap[d]) for d in dates}
     
     # Count vacation per day
     vacation_counts = {}
@@ -292,9 +344,10 @@ def check_daily_coverage(data: Dict, verbose: bool) -> DiagnosticReport:
             try:
                 for date in eval(col):
                     d = date[:10]
-                    if d not in vacation_counts:
-                        vacation_counts[d] = 0
-                    vacation_counts[d] += 1
+                    if d in dates:
+                        if d not in vacation_counts:
+                            vacation_counts[d] = 0
+                        vacation_counts[d] += 1
             except:
                 pass
     
@@ -329,7 +382,9 @@ def check_daily_coverage(data: Dict, verbose: bool) -> DiagnosticReport:
         return DiagnosticReport(
             check_name="Daily Coverage",
             result=DiagnosticResult.FAIL,
-            message=f"INFEASIBLE: {len(problem_days)} days have more work than available crew",
+            message=f"{len(problem_days)} day(s) have more trips than available crew. "
+                    f"Worst: {problem_days[0]['date']} needs {problem_days[0]['work_needed']} "
+                    f"crew but only {problem_days[0]['crew_available']} available.",
             details={'problem_days': problem_days}
         )
     else:
@@ -481,6 +536,175 @@ def check_individual_crew_feasibility(data: Dict, verbose: bool) -> DiagnosticRe
             result=DiagnosticResult.PASS,
             message="All crew have sufficient available days for their required work",
             details={'impossible_crew': [], 'tight_crew': []}
+        )
+
+
+def check_tdy_contiguity(data: Dict, verbose: bool) -> DiagnosticReport:
+    """
+    Check if TDY crew can work their required days in one contiguous block.
+    
+    TDY crew have a constraint that they can only work in one "chunk" - 
+    their work days must be consecutive (no vacation splitting their work).
+    """
+    
+    prefs = data['prefs']
+    dates = data['dates']
+    days_worked = data['days_worked']
+    crew_filtered = data['crew_filtered']
+    n_dates = len(dates)
+    dates_set = set(dates)
+    
+    # Get TDY status for each crew member
+    tdy_status = crew_filtered.loc[prefs['user_name'].values]['is_tdy'].values
+    
+    impossible_tdy = []
+    
+    if verbose:
+        print(f"\n  TDY Contiguity Check:")
+        tdy_count = sum(tdy_status)
+        print(f"    TDY crew members: {tdy_count}")
+    
+    for idx, (crew_idx, row) in enumerate(prefs[['user_name', 'work_restriction_days', 'vacation_days', 'training_days']].iterrows()):
+        if not tdy_status[idx]:
+            continue  # Skip non-TDY crew
+            
+        crew_name = row['user_name']
+        required_days = int(days_worked[idx])
+        
+        # Get restricted dates for this crew member
+        restricted_dates = set()
+        for col in [row['work_restriction_days'], row['vacation_days'], row['training_days']]:
+            try:
+                for date in eval(col):
+                    d = date[:10]
+                    if d in dates_set:
+                        restricted_dates.add(d)
+            except:
+                pass
+        
+        # Build availability array (1 = can work, 0 = restricted)
+        availability = []
+        for d in dates:
+            availability.append(0 if d in restricted_dates else 1)
+        
+        # Find the longest contiguous block of available days
+        max_contiguous = 0
+        current_contiguous = 0
+        for avail in availability:
+            if avail == 1:
+                current_contiguous += 1
+                max_contiguous = max(max_contiguous, current_contiguous)
+            else:
+                current_contiguous = 0
+        
+        # TDY crew need to fit all their work days in one contiguous block
+        if max_contiguous < required_days:
+            impossible_tdy.append({
+                'name': crew_name,
+                'required_days': required_days,
+                'max_contiguous': max_contiguous,
+                'restricted_count': len(restricted_dates)
+            })
+    
+    if verbose:
+        if impossible_tdy:
+            print(f"    ⚠️ TDY crew who CANNOT work in one block ({len(impossible_tdy)}):")
+            for t in impossible_tdy[:3]:
+                print(f"      • {t['name']}: needs {t['required_days']} consecutive days, "
+                      f"but longest available block is {t['max_contiguous']} days")
+            if len(impossible_tdy) > 3:
+                print(f"      ... and {len(impossible_tdy) - 3} more")
+        else:
+            print(f"    ✓ All TDY crew can work in one contiguous block")
+    
+    if impossible_tdy:
+        return DiagnosticReport(
+            check_name="TDY Contiguity",
+            result=DiagnosticResult.FAIL,
+            message=f"{len(impossible_tdy)} TDY crew member(s) have vacation that splits the period, "
+                    f"making it impossible to work their required days in one block. "
+                    f"First: {impossible_tdy[0]['name']} needs {impossible_tdy[0]['required_days']} "
+                    f"consecutive days but can only get {impossible_tdy[0]['max_contiguous']}.",
+            details={'impossible_tdy': impossible_tdy}
+        )
+    else:
+        return DiagnosticReport(
+            check_name="TDY Contiguity",
+            result=DiagnosticResult.PASS,
+            message="All TDY crew can work in one contiguous block"
+        )
+
+
+def check_long_duty_limits(data: Dict, verbose: bool) -> DiagnosticReport:
+    """
+    Check if long-duty pairings can be distributed within limits.
+    
+    Rules from fca.py:
+    - OAK, SCF, SNA: max 8 long-duty trips per crew member
+    - Other bases: max 5 long-duty trips per crew member
+    
+    A "long duty" pairing has duty time >= 9 hours OR 5+ legs
+    """
+    
+    pairings = data['pairings_filtered']
+    prefs = data['prefs']
+    base = data['base']
+    n_c = len(prefs)
+    
+    # Determine limit based on base
+    if base in ['OAK', 'SCF', 'SNA']:
+        limit_per_crew = 8
+    else:
+        limit_per_crew = 5
+    
+    # Count long duty pairings
+    long_duty_count = 0
+    if 'dtime' in pairings.columns and 'mlegs' in pairings.columns:
+        long_duty_mask = (pairings['dtime'] >= 9 * 3600) | (pairings['mlegs'] >= 5)
+        long_duty_count = long_duty_mask.sum()
+    elif 'dtime' in pairings.columns:
+        long_duty_count = (pairings['dtime'] >= 9 * 3600).sum()
+    elif 'mlegs' in pairings.columns:
+        long_duty_count = (pairings['mlegs'] >= 5).sum()
+    
+    # Total capacity for long duty trips
+    total_capacity = n_c * limit_per_crew
+    deficit = long_duty_count - total_capacity
+    
+    if verbose:
+        print(f"\n  Long Duty Trip Limits:")
+        print(f"    Long duty trips (9+ hrs or 5+ legs): {long_duty_count}")
+        print(f"    Limit per crew member: {limit_per_crew}")
+        print(f"    Total capacity ({n_c} crew × {limit_per_crew}): {total_capacity}")
+    
+    if deficit > 0:
+        if verbose:
+            print(f"    ⚠️ OVER CAPACITY by {deficit} trips!")
+        return DiagnosticReport(
+            check_name="Long Duty Limits",
+            result=DiagnosticResult.FAIL,
+            message=f"There are {long_duty_count} long-duty trips but crew can only handle "
+                    f"{total_capacity} total ({n_c} crew × {limit_per_crew} each). "
+                    f"Over capacity by {deficit} trips.",
+            details={'long_duty_count': long_duty_count, 'capacity': total_capacity, 'deficit': deficit}
+        )
+    elif total_capacity - long_duty_count < n_c:
+        if verbose:
+            print(f"    ⚠️ Tight - only {total_capacity - long_duty_count} slots of slack")
+        return DiagnosticReport(
+            check_name="Long Duty Limits",
+            result=DiagnosticResult.WARNING,
+            message=f"Long duty trips ({long_duty_count}) are close to capacity ({total_capacity}). "
+                    f"May be hard to distribute evenly.",
+            details={'long_duty_count': long_duty_count, 'capacity': total_capacity}
+        )
+    else:
+        if verbose:
+            print(f"    ✓ Within limits")
+        return DiagnosticReport(
+            check_name="Long Duty Limits",
+            result=DiagnosticResult.PASS,
+            message=f"Long duty trips ({long_duty_count}) are within capacity ({total_capacity})"
         )
 
 
