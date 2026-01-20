@@ -112,34 +112,23 @@ async def process_command(payload: dict):
             all_statuses = []
             for base in ["BUR", "DAL", "HPN", "LAS", "SCF", "OPF", "OAK", "SNA"]:
                 try:
-                    # Check if optimization is running
-                    key = f"{base}-{seat_arg}"
-                    is_running = key in running_optimizations
+                    status_result = check_status(base, seat_arg)
+                    status_result["base"] = base
+                    status_result["seat"] = seat_arg
                     
-                    # Check status file
+                    # Add last updated timestamp
                     status_file = f"testing/{base}-{seat_arg}.txt"
-                    status_info = ""
-                    last_updated = ""
-                    
                     if os.path.exists(status_file):
-                        with open(status_file, "r") as f:
-                            status_info = f.read().strip()
                         timestamp = os.path.getmtime(status_file)
-                        last_updated = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+                        status_result["last_updated"] = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
                     
-                    status = {
-                        "base": base,
-                        "seat": seat_arg,
-                        "running": is_running,
-                        "status_info": status_info,
-                        "last_updated": last_updated
-                    }
-                    all_statuses.append(status)
+                    all_statuses.append(status_result)
                 except Exception as e:
                     all_statuses.append({
                         "base": base,
                         "seat": seat_arg,
-                        "error": str(e)
+                        "status": "error",
+                        "message": str(e)
                     })
             return {"all_statuses": all_statuses}
         elif program_type == ProgramType.RUN:
@@ -239,45 +228,105 @@ async def commands():
     return {"instructions": HELP_TEXT.strip()}
 
 def check_status(base_arg: str, seat_arg: str) -> dict:
-    """Check the current status of optimization for given base and seat"""
-    logs = []
+    """Check the current status of optimization for given base and seat
     
-    # Check if optimization is currently running
+    Returns status:
+    - "running" - optimization is in progress
+    - "complete_feasible" - optimization finished with a feasible solution
+    - "complete_infeasible" - optimization finished but no feasible solution found
+    - "unknown" - status could not be determined
+    """
     key = f"{base_arg}-{seat_arg}"
-    is_running = False
     
-    if key in running_optimizations:
-        task = running_optimizations[key]
-        try:
-            # Check if task is done without waiting
-            is_running = not task.done()
-            if is_running:
-                logs.append("Status: Optimization is currently running")
-            else:
-                # Task is complete
-                try:
-                    result = task.result()
-                    logs.append("Status: Optimization completed successfully")
-                except Exception as e:
-                    logs.append(f"Status: Optimization failed with error: {str(e)}")
-                # Cleanup completed task
-                del running_optimizations[key]
-        except Exception as e:
-            logs.append(f"Status: Error checking optimization status: {str(e)}")
-    
-    # Check for status file regardless of running status
+    # Check the status file first (testing/{base}-{seat}.txt)
     status_file = f"testing/{base_arg}-{seat_arg}.txt"
+    solver_status_file = f"{base_arg}.txt"
     
+    # Determine if running from status file
+    is_running = False
     if os.path.exists(status_file):
         try:
             with open(status_file, "r") as f:
-                status = f.read().strip()
-            logs.append("\nFile Status:")
-            logs.append(status)
-        except Exception as e:
-            logs.append(f"Error reading status file: {str(e)}")
+                file_status = f.read().strip().lower()
+            is_running = (file_status == "running")
+        except Exception:
+            pass
     
-    return {"logs": logs}
+    # Also check task tracking
+    if key in running_optimizations:
+        task = running_optimizations[key]
+        try:
+            if not task.done():
+                is_running = True
+            else:
+                # Cleanup completed task
+                del running_optimizations[key]
+        except Exception:
+            pass
+    
+    # If running, return that status
+    if is_running:
+        return {
+            "status": "running",
+            "message": f"Optimization for {base_arg} {seat_arg} is currently running"
+        }
+    
+    # Check solver status file for feasibility
+    feasibility = "unknown"
+    solver_status = None
+    
+    if os.path.exists(solver_status_file):
+        try:
+            with open(solver_status_file, "r") as f:
+                content = f.read().strip()
+            # Parse "Status: optimal" format
+            if content.startswith("Status:"):
+                solver_status = content.split(":", 1)[1].strip().lower()
+            else:
+                solver_status = content.lower()
+            
+            # Determine feasibility from solver status
+            if solver_status in ["optimal", "optimal_inaccurate"]:
+                feasibility = "feasible"
+            elif solver_status in ["infeasible", "unbounded", "infeasible_or_unbounded"]:
+                feasibility = "infeasible"
+            else:
+                feasibility = "unknown"
+        except Exception:
+            pass
+    
+    # Check if we have a finished status file
+    if os.path.exists(status_file):
+        try:
+            with open(status_file, "r") as f:
+                file_status = f.read().strip().lower()
+            if file_status == "finished":
+                if feasibility == "feasible":
+                    return {
+                        "status": "complete_feasible",
+                        "message": f"Optimization for {base_arg} {seat_arg} completed with a feasible solution",
+                        "solver_status": solver_status
+                    }
+                elif feasibility == "infeasible":
+                    return {
+                        "status": "complete_infeasible", 
+                        "message": f"Optimization for {base_arg} {seat_arg} completed but no feasible solution was found",
+                        "solver_status": solver_status
+                    }
+                else:
+                    return {
+                        "status": "complete_unknown",
+                        "message": f"Optimization for {base_arg} {seat_arg} completed but feasibility status is unknown",
+                        "solver_status": solver_status
+                    }
+        except Exception:
+            pass
+    
+    # No status file found
+    return {
+        "status": "not_found",
+        "message": f"No optimization status found for {base_arg} {seat_arg}. Has the optimization been run?"
+    }
 
 # Then mount the static files.
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
