@@ -110,6 +110,10 @@ def diagnose_optimization(base: str, seat: str, d1: str, d2: str, verbose: bool 
         pairing_coverage_report = check_pairing_vacation_coverage(data, verbose)
         reports.append(pairing_coverage_report)
         
+        # Assignment Simulation - can we actually assign all pairings?
+        assignment_report = simulate_assignment(data, verbose)
+        reports.append(assignment_report)
+        
         # TDY Contiguity Check (TDY crew must work in one block)
         tdy_report = check_tdy_contiguity(data, verbose)
         reports.append(tdy_report)
@@ -604,6 +608,171 @@ def check_individual_crew_feasibility(data: Dict, verbose: bool) -> DiagnosticRe
             result=DiagnosticResult.PASS,
             message="All crew have sufficient available days for their required work",
             details={'impossible_crew': [], 'tight_crew': []}
+        )
+
+
+def simulate_assignment(data: Dict, verbose: bool) -> DiagnosticReport:
+    """
+    Simulate assigning pairings to crew to see if it's actually possible.
+    
+    This catches cases where:
+    - Each day individually looks coverable
+    - But the combination of vacation + required days makes it impossible
+    
+    Uses "most constrained first" heuristic - assigns to crew with fewest
+    remaining available days first.
+    """
+    
+    pairings = data['pairings_filtered'].copy()
+    prefs = data['prefs']
+    dates = data['dates']
+    days_worked = data['days_worked']
+    dates_set = set(dates)
+    
+    # Build crew info: available days and required days
+    crew_info = {}
+    for idx, (crew_idx, row) in enumerate(prefs[['user_name', 'work_restriction_days', 'vacation_days', 'training_days']].iterrows()):
+        crew_name = row['user_name']
+        
+        # Get blocked dates
+        blocked_dates = set()
+        for col in [row['work_restriction_days'], row['vacation_days'], row['training_days']]:
+            try:
+                for date in eval(col):
+                    d = date[:10]
+                    if d in dates_set:
+                        blocked_dates.add(d)
+            except:
+                pass
+        
+        available_dates = set(dates) - blocked_dates
+        required = int(days_worked[idx])
+        
+        crew_info[crew_name] = {
+            'available_dates': available_dates,
+            'required': required,
+            'remaining': required,  # Days left to assign
+            'assigned_dates': set()
+        }
+    
+    # Group pairings by day (for single-day trips, just use d1)
+    pairings_by_day = {d: [] for d in dates}
+    for idx, row in pairings.iterrows():
+        d1 = row['d1']
+        if d1 in dates_set:
+            pairings_by_day[d1].append({
+                'idx': row.get('idx', f'P{idx}'),
+                'date': d1,
+                'mult': row.get('mult', 1)
+            })
+    
+    # Try to assign pairings day by day
+    unassigned_pairings = []
+    problem_days = []
+    
+    for day in dates:
+        day_pairings = pairings_by_day.get(day, [])
+        if not day_pairings:
+            continue
+        
+        # Get available crew for this day (not on vacation, still have remaining days)
+        available_crew = []
+        for crew_name, info in crew_info.items():
+            if day in info['available_dates'] and info['remaining'] > 0 and day not in info['assigned_dates']:
+                # Calculate how "constrained" this crew is
+                # (remaining days to work) / (remaining available days not yet assigned)
+                remaining_available = len(info['available_dates'] - info['assigned_dates'])
+                if remaining_available > 0:
+                    constraint_ratio = info['remaining'] / remaining_available
+                else:
+                    constraint_ratio = float('inf')
+                available_crew.append((crew_name, constraint_ratio))
+        
+        # Sort by constraint ratio descending (most constrained first)
+        available_crew.sort(key=lambda x: -x[1])
+        
+        # Try to assign pairings
+        for pairing in day_pairings:
+            if not available_crew:
+                unassigned_pairings.append({
+                    'pairing': pairing['idx'],
+                    'date': day,
+                    'reason': 'No available crew'
+                })
+                if day not in [p['date'] for p in problem_days]:
+                    problem_days.append({
+                        'date': day,
+                        'pairings_needed': len(day_pairings),
+                        'crew_available': 0
+                    })
+                continue
+            
+            # Assign to most constrained crew
+            crew_name, _ = available_crew.pop(0)
+            crew_info[crew_name]['remaining'] -= 1
+            crew_info[crew_name]['assigned_dates'].add(day)
+    
+    # Check if any crew couldn't be fully assigned
+    underassigned_crew = []
+    for crew_name, info in crew_info.items():
+        if info['remaining'] > 0:
+            underassigned_crew.append({
+                'name': crew_name,
+                'required': info['required'],
+                'assigned': info['required'] - info['remaining'],
+                'remaining': info['remaining']
+            })
+    
+    if verbose:
+        print(f"\n  Assignment Simulation:")
+        print(f"    Simulating pairing assignments with vacation constraints...")
+        
+        if unassigned_pairings:
+            print(f"\n    ⚠️ FAILED: {len(unassigned_pairings)} pairings could not be assigned!")
+            for p in unassigned_pairings[:5]:
+                print(f"      • {p['pairing']} on {p['date']}: {p['reason']}")
+            if len(unassigned_pairings) > 5:
+                print(f"      ... and {len(unassigned_pairings) - 5} more")
+        
+        if underassigned_crew:
+            print(f"\n    ⚠️ CREW NOT FULLY UTILIZED: {len(underassigned_crew)} crew need more assignments")
+            for c in underassigned_crew[:5]:
+                print(f"      • {c['name']}: needs {c['required']} days, could only assign {c['assigned']}")
+            if len(underassigned_crew) > 5:
+                print(f"      ... and {len(underassigned_crew) - 5} more")
+                
+            # Calculate total shortfall
+            total_shortfall = sum(c['remaining'] for c in underassigned_crew)
+            print(f"\n    Total crew-days not assignable: {total_shortfall}")
+        
+        if not unassigned_pairings and not underassigned_crew:
+            print(f"    ✓ Simulation successful - all pairings could be assigned")
+    
+    # Determine result
+    if unassigned_pairings:
+        return DiagnosticReport(
+            check_name="Assignment Simulation",
+            result=DiagnosticResult.FAIL,
+            message=f"{len(unassigned_pairings)} pairing(s) could not be assigned. "
+                    f"First failure: {unassigned_pairings[0]['pairing']} on {unassigned_pairings[0]['date']}. "
+                    f"The combination of vacation schedules makes it impossible to cover all pairings.",
+            details={'unassigned': unassigned_pairings, 'problem_days': problem_days}
+        )
+    elif underassigned_crew:
+        total_shortfall = sum(c['remaining'] for c in underassigned_crew)
+        return DiagnosticReport(
+            check_name="Assignment Simulation",
+            result=DiagnosticResult.WARNING,
+            message=f"All pairings assigned, but {len(underassigned_crew)} crew member(s) "
+                    f"couldn't reach their required days (shortfall: {total_shortfall} days). "
+                    f"The min_days constraint may cause infeasibility.",
+            details={'underassigned': underassigned_crew}
+        )
+    else:
+        return DiagnosticReport(
+            check_name="Assignment Simulation",
+            result=DiagnosticResult.PASS,
+            message="Simulation successful - assignment appears feasible"
         )
 
 
