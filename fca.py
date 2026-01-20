@@ -22,6 +22,20 @@ BASE_TIME_PREFERENCES = {
 # Default values if base not found in the dictionary
 DEFAULT_TIME_PREFERENCES = [7, 11, 15]
 
+# Long duty limits per crew member (trips with 9+ hour duty or 5+ legs)
+# Change these values to adjust the constraint
+LONG_DUTY_LIMITS = {
+    'OAK': 8,
+    'SCF': 8,
+    'SNA': 8,
+    'OPF': 20,
+    'DEFAULT': 5  # Used for all other bases
+}
+
+def get_long_duty_limit(base: str) -> int:
+    """Get the long duty limit for a given base"""
+    return LONG_DUTY_LIMITS.get(base, LONG_DUTY_LIMITS['DEFAULT'])
+
 def fca(base, seat, d1, d2, seconds):
     print(f"FCA optimization started for {base} {seat} from {d1} to {d2} with {seconds} seconds time limit", flush=True)
     print(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", flush=True)
@@ -922,16 +936,11 @@ def fca(base, seat, d1, d2, seconds):
         #             if c not in squal_caps:
         #                 constraints += [cp.sum(xp[c, squal_duties]) == 0]
 
-        #duty time
+        #duty time - limit based on LONG_DUTY_LIMITS config
+        long_duty_limit = get_long_duty_limit(base)
         for c in range(n_c):
             overage = cp.sum(cp.multiply(rowl, xp[c]))
-            if base == 'OAK':
-                constraints += [overage <= 8]
-                continue
-            elif base == 'SCF' or base == 'SNA':
-                constraints += [overage <= 8]
-                continue
-            constraints += [overage <= 5] 
+            constraints += [overage <= long_duty_limit] 
 
         sen = (prefs.index + 1) / len(prefs)
 

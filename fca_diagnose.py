@@ -22,6 +22,9 @@ from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 from enum import Enum
 
+# Import config from fca.py so limits stay in sync
+from fca import get_long_duty_limit, LONG_DUTY_LIMITS
+
 
 class DiagnosticResult(Enum):
     PASS = "PASS"
@@ -639,9 +642,8 @@ def check_long_duty_limits(data: Dict, verbose: bool) -> DiagnosticReport:
     """
     Check if long-duty pairings can be distributed within limits.
     
-    Rules from fca.py:
-    - OAK, SCF, SNA: max 8 long-duty trips per crew member
-    - Other bases: max 5 long-duty trips per crew member
+    Uses LONG_DUTY_LIMITS from fca.py so the diagnostic stays in sync
+    with the actual optimization constraints.
     
     A "long duty" pairing has duty time >= 9 hours OR 5+ legs
     """
@@ -651,11 +653,8 @@ def check_long_duty_limits(data: Dict, verbose: bool) -> DiagnosticReport:
     base = data['base']
     n_c = len(prefs)
     
-    # Determine limit based on base
-    if base in ['OAK', 'SCF', 'SNA']:
-        limit_per_crew = 8
-    else:
-        limit_per_crew = 5
+    # Get limit from fca.py config (stays in sync with actual constraint)
+    limit_per_crew = get_long_duty_limit(base)
     
     # Count long duty pairings
     long_duty_count = 0
@@ -672,7 +671,7 @@ def check_long_duty_limits(data: Dict, verbose: bool) -> DiagnosticReport:
     deficit = long_duty_count - total_capacity
     
     if verbose:
-        print(f"\n  Long Duty Trip Limits:")
+        print(f"\n  Long Duty Trip Limits (from fca.py config):")
         print(f"    Long duty trips (9+ hrs or 5+ legs): {long_duty_count}")
         print(f"    Limit per crew member: {limit_per_crew}")
         print(f"    Total capacity ({n_c} crew × {limit_per_crew}): {total_capacity}")
@@ -685,7 +684,8 @@ def check_long_duty_limits(data: Dict, verbose: bool) -> DiagnosticReport:
             result=DiagnosticResult.FAIL,
             message=f"There are {long_duty_count} long-duty trips but crew can only handle "
                     f"{total_capacity} total ({n_c} crew × {limit_per_crew} each). "
-                    f"Over capacity by {deficit} trips.",
+                    f"Over capacity by {deficit} trips. "
+                    f"To fix: increase LONG_DUTY_LIMITS['{base}'] in fca.py",
             details={'long_duty_count': long_duty_count, 'capacity': total_capacity, 'deficit': deficit}
         )
     elif total_capacity - long_duty_count < n_c:
