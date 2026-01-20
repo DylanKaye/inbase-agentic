@@ -83,6 +83,8 @@ def get_date_range():
     end_date = f"{year}-{month_num:02d}-{last_day:02d}"
     
     print(f"Using date range: {start_date} to {end_date}")
+    start_date = '2026-01-31'
+    end_date = '2026-02-28'
     return start_date, end_date
 
 def capture_solver_output(solver_command, output_file=None, tee=True):
