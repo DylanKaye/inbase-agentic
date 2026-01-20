@@ -86,6 +86,10 @@ def diagnose_optimization(base: str, seat: str, d1: str, d2: str, verbose: bool 
             message="All required data files loaded successfully"
         ))
         
+        # Print quick summary of numbers
+        if verbose:
+            print_data_summary(data)
+        
         # Supply/Demand Balance Check
         supply_demand_report = check_supply_demand_balance(data, verbose)
         reports.append(supply_demand_report)
@@ -233,6 +237,63 @@ def load_and_validate_data(base: str, seat: str, d1: str, d2: str, verbose: bool
     data['days_worked'] = data['crew_filtered'].loc[data['prefs']['user_name'].values]['tot_days'].values
     
     return data
+
+
+def print_data_summary(data: Dict):
+    """Print a quick summary of the key numbers for easy debugging"""
+    
+    pairings = data['pairings_filtered']
+    prefs = data['prefs']
+    days_worked = data['days_worked']
+    dates = data['dates']
+    base = data['base']
+    
+    print(f"\n  📊 Quick Data Summary for {base}:")
+    print(f"  " + "-" * 50)
+    
+    # Crew and pairings
+    print(f"    Crew members: {len(prefs)}")
+    print(f"    Total pairings: {len(pairings)}")
+    print(f"    Crew-days to assign: {int(sum(days_worked))}")
+    print(f"    Pairing-days available: {int(pairings['mult'].sum())}")
+    gap = int(sum(days_worked) - pairings['mult'].sum())
+    print(f"    Gap: {gap} {'✓' if gap >= 0 else '⚠️ NEGATIVE'}")
+    
+    # Pairing breakdown
+    if 'mult' in pairings.columns:
+        print(f"\n    Pairings by duration:")
+        for mult in sorted(pairings['mult'].unique()):
+            count = len(pairings[pairings['mult'] == mult])
+            days = pairings[pairings['mult'] == mult]['mult'].sum()
+            print(f"      {int(mult)}-day: {count} trips ({int(days)} days)")
+    
+    # Overnight preferences
+    if 'overnight_preference' in prefs.columns:
+        print(f"\n    Crew overnight preferences:")
+        for pref in ['No Overnights', 'Some', 'Many']:
+            count = len(prefs[prefs['overnight_preference'] == pref])
+            if count > 0:
+                print(f"      {pref}: {count}")
+    
+    # TDY crew
+    if 'is_tdy' in data['crew_filtered'].columns:
+        tdy_count = data['crew_filtered']['is_tdy'].sum()
+        if tdy_count > 0:
+            print(f"\n    TDY crew: {int(tdy_count)}")
+    
+    # Long duty pairings
+    if 'dtime' in pairings.columns or 'mlegs' in pairings.columns:
+        if 'dtime' in pairings.columns and 'mlegs' in pairings.columns:
+            long_duty = ((pairings['dtime'] >= 9 * 3600) | (pairings['mlegs'] >= 5)).sum()
+        elif 'dtime' in pairings.columns:
+            long_duty = (pairings['dtime'] >= 9 * 3600).sum()
+        else:
+            long_duty = (pairings['mlegs'] >= 5).sum()
+        limit = get_long_duty_limit(base)
+        capacity = len(prefs) * limit
+        print(f"\n    Long duty trips: {long_duty} (capacity: {capacity})")
+    
+    print(f"  " + "-" * 50)
 
 
 def check_supply_demand_balance(data: Dict, verbose: bool) -> DiagnosticReport:
@@ -753,11 +814,172 @@ def analyze_constraints(data: Dict, verbose: bool) -> List[DiagnosticReport]:
             message=f"3+ day trips can be assigned to willing crew"
         ))
     
+    # Check overnight distribution (single vs multi-day pairings)
+    overnight_report = check_overnight_distribution(data, verbose)
+    reports.append(overnight_report)
+    
     # Check fatigue rules
     fatigue_report = check_fatigue_rules(data, verbose)
     reports.append(fatigue_report)
     
+    # Check reserve distribution
+    reserve_report = check_reserve_distribution(data, verbose)
+    if reserve_report:
+        reports.append(reserve_report)
+    
     return reports
+
+
+def check_reserve_distribution(data: Dict, verbose: bool) -> Optional[DiagnosticReport]:
+    """
+    Check if reserve pairings can be distributed within limits.
+    
+    In fca.py, each crew member can only have up to max_days/1.5 reserve pairings.
+    """
+    
+    pairings = data['pairings_filtered']
+    prefs = data['prefs']
+    days_worked = data['days_worked']
+    
+    # Find reserve pairings (identified by 'R' in the idx column)
+    if 'idx' not in pairings.columns:
+        return None
+    
+    reserve_pairings = pairings[pairings['idx'].str.contains('R', na=False)]
+    n_reserves = len(reserve_pairings)
+    
+    if n_reserves == 0:
+        return None  # No reserves to check
+    
+    # Calculate total reserve capacity
+    # Each crew can have at most max_days/1.5 reserves
+    total_reserve_capacity = 0
+    for days in days_worked:
+        total_reserve_capacity += int(days / 1.5)
+    
+    if verbose:
+        print(f"\n  Reserve Distribution Check:")
+        print(f"    Reserve pairings: {n_reserves}")
+        print(f"    Total reserve capacity: {total_reserve_capacity}")
+    
+    if n_reserves > total_reserve_capacity:
+        deficit = n_reserves - total_reserve_capacity
+        if verbose:
+            print(f"    ⚠️ Too many reserves! Over capacity by {deficit}")
+        return DiagnosticReport(
+            check_name="Reserve Distribution",
+            result=DiagnosticResult.FAIL,
+            message=f"There are {n_reserves} reserve pairings but crew can only handle "
+                    f"{total_reserve_capacity} total. Over capacity by {deficit}.",
+            details={'n_reserves': n_reserves, 'capacity': total_reserve_capacity}
+        )
+    else:
+        if verbose:
+            print(f"    ✓ Reserves within capacity")
+        return DiagnosticReport(
+            check_name="Reserve Distribution",
+            result=DiagnosticResult.PASS,
+            message=f"Reserve pairings ({n_reserves}) are within capacity ({total_reserve_capacity})"
+        )
+
+
+def check_overnight_distribution(data: Dict, verbose: bool) -> DiagnosticReport:
+    """
+    Check if the mix of single-day vs multi-day pairings matches crew preferences.
+    
+    In fca.py, crew who want "No Overnights" can only be assigned single-day pairings,
+    and crew who want "Many Overnights" get multi-day pairings.
+    
+    This checks if there are enough single-day pairings for crew who don't want overnights.
+    """
+    
+    pairings = data['pairings_filtered']
+    prefs = data['prefs']
+    days_worked = data['days_worked']
+    
+    if 'mult' not in pairings.columns or 'overnight_preference' not in prefs.columns:
+        return DiagnosticReport(
+            check_name="Overnight Distribution",
+            result=DiagnosticResult.PASS,
+            message="Cannot check overnight distribution (missing data columns)"
+        )
+    
+    # Count pairings by type
+    single_day_pairings = pairings[pairings['mult'] == 1]
+    multi_day_pairings = pairings[pairings['mult'] >= 2]
+    
+    single_day_count = len(single_day_pairings)
+    multi_day_count = len(multi_day_pairings)
+    
+    # Count days by type
+    single_day_total = single_day_pairings['mult'].sum() if len(single_day_pairings) > 0 else 0
+    multi_day_total = multi_day_pairings['mult'].sum() if len(multi_day_pairings) > 0 else 0
+    
+    # Count crew by preference
+    no_overnight_crew = prefs[prefs['overnight_preference'] == 'No Overnights']
+    many_overnight_crew = prefs[prefs['overnight_preference'] == 'Many']
+    some_overnight_crew = prefs[prefs['overnight_preference'] == 'Some']
+    
+    n_no_overnight = len(no_overnight_crew)
+    n_many_overnight = len(many_overnight_crew)
+    n_some_overnight = len(some_overnight_crew)
+    
+    # Calculate days needed by "No Overnights" crew
+    no_overnight_indices = no_overnight_crew.index.tolist()
+    no_overnight_days_needed = 0
+    for idx, row in prefs.iterrows():
+        if row['overnight_preference'] == 'No Overnights':
+            crew_idx = prefs.index.get_loc(idx)
+            no_overnight_days_needed += days_worked[crew_idx]
+    
+    if verbose:
+        print(f"\n  Overnight Distribution Check:")
+        print(f"    Single-day trips: {single_day_count} ({single_day_total} days)")
+        print(f"    Multi-day trips: {multi_day_count} ({multi_day_total} days)")
+        print(f"    Crew wanting 'No Overnights': {n_no_overnight} (need {no_overnight_days_needed} days)")
+        print(f"    Crew wanting 'Many Overnights': {n_many_overnight}")
+        print(f"    Crew wanting 'Some Overnights': {n_some_overnight}")
+    
+    # Check if there are enough single-day pairings for "No Overnights" crew
+    if single_day_total < no_overnight_days_needed:
+        deficit = no_overnight_days_needed - single_day_total
+        if verbose:
+            print(f"    ⚠️ Not enough single-day trips! Deficit: {deficit} days")
+        return DiagnosticReport(
+            check_name="Overnight Distribution",
+            result=DiagnosticResult.FAIL,
+            message=f"Crew who want 'No Overnights' need {no_overnight_days_needed} days of single-day trips, "
+                    f"but there are only {single_day_total} days available. "
+                    f"Short by {deficit} days.",
+            details={
+                'single_day_total': int(single_day_total),
+                'no_overnight_days_needed': int(no_overnight_days_needed),
+                'deficit': int(deficit)
+            }
+        )
+    
+    # Check if multi-day pairings can be absorbed
+    # Crew who want "Many" or "Some" overnights can take multi-day pairings
+    crew_for_multi = n_many_overnight + n_some_overnight
+    if multi_day_count > 0 and crew_for_multi == 0:
+        if verbose:
+            print(f"    ⚠️ Multi-day trips exist but no crew want overnights!")
+        return DiagnosticReport(
+            check_name="Overnight Distribution",
+            result=DiagnosticResult.FAIL,
+            message=f"There are {multi_day_count} multi-day (overnight) trips, but no crew members "
+                    f"want overnights. These trips cannot be assigned.",
+            details={'multi_day_count': multi_day_count, 'crew_for_multi': crew_for_multi}
+        )
+    
+    if verbose:
+        print(f"    ✓ Overnight distribution looks feasible")
+    
+    return DiagnosticReport(
+        check_name="Overnight Distribution",
+        result=DiagnosticResult.PASS,
+        message=f"Single-day trips ({single_day_total} days) can cover 'No Overnights' crew ({no_overnight_days_needed} days needed)"
+    )
 
 
 def check_fatigue_rules(data: Dict, verbose: bool) -> DiagnosticReport:
