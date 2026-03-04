@@ -2,17 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Advanced Optimization Control System</title>
+  <title>Pairing Analyzer</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600&display=swap');
     
-    /* Update color scheme to match the image */
     :root {
       --primary-color: #00a8ff;
       --secondary-color: #0066cc;
       --background-color: #001832;
       --text-color: #80c7ff;
       --grid-color: rgba(0, 168, 255, 0.1);
+      --accent: #64ffda;
     }
 
     body { 
@@ -26,7 +26,6 @@
       line-height: 1.6;
     }
 
-    /* Update holographic background to match image */
     body::before {
       content: '';
       position: fixed;
@@ -68,9 +67,108 @@
       max-width: 500px;
     }
 
+    /* Data controls panel */
+    .data-controls {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      padding: 15px;
+      border: 1px solid rgba(0,168,255,0.3);
+      border-radius: 8px;
+      background: rgba(0,24,50,0.6);
+    }
+
+    .data-controls label {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .data-controls input[type="date"],
+    .data-controls input[type="number"] {
+      padding: 8px 12px;
+      border: 1px solid var(--primary-color);
+      border-radius: 6px;
+      background: rgba(0,24,50,0.9);
+      color: var(--text-color);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 14px;
+    }
+
+    .data-controls input[type="date"]:focus,
+    .data-controls input[type="number"]:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 10px rgba(100,255,218,0.2);
+    }
+
+    .data-controls input[type="number"] {
+      width: 70px;
+    }
+
+    /* Status badge */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 15px;
+    }
+
+    .status-badge.no-data {
+      background: rgba(255,100,100,0.15);
+      border: 1px solid rgba(255,100,100,0.4);
+      color: #ff8a80;
+    }
+
+    .status-badge.loaded {
+      background: rgba(100,255,218,0.15);
+      border: 1px solid rgba(100,255,218,0.4);
+      color: var(--accent);
+    }
+
+    .status-badge.loading {
+      background: rgba(255,193,7,0.15);
+      border: 1px solid rgba(255,193,7,0.4);
+      color: #ffd54f;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .status-badge.no-data .status-dot { background: #ff8a80; }
+    .status-badge.loaded .status-dot { background: var(--accent); animation: pulse 2s infinite; }
+    .status-badge.loading .status-dot { background: #ffd54f; animation: pulse 0.8s infinite; }
+
+    .data-summary {
+      font-size: 13px;
+      color: rgba(128,199,255,0.7);
+      margin-bottom: 15px;
+      padding: 10px 14px;
+      border-left: 3px solid var(--accent);
+      background: rgba(100,255,218,0.05);
+      border-radius: 0 6px 6px 0;
+      display: none;
+    }
+
+    .data-summary.visible { display: block; }
+
     textarea {
       width: 100%;
-      height: 120px;
+      height: 100px;
       padding: 15px;
       margin-bottom: 15px;
       border: 1px solid var(--primary-color);
@@ -85,8 +183,13 @@
 
     textarea:focus {
       outline: none;
-      border-color: #64ffda;
+      border-color: var(--accent);
       box-shadow: 0 0 20px rgba(100,255,218,0.2);
+    }
+
+    textarea:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
     }
 
     button {
@@ -106,9 +209,14 @@
       overflow: hidden;
     }
 
-    button:hover {
+    button:hover:not(:disabled) {
       background-color: rgba(0,168,255,0.1);
       box-shadow: 0 0 15px var(--primary-color);
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
     }
 
     button::before {
@@ -118,17 +226,23 @@
       left: -100%;
       width: 100%;
       height: 100%;
-      background: linear-gradient(
-        120deg,
-        transparent,
-        rgba(100,255,218,0.2),
-        transparent
-      );
+      background: linear-gradient(120deg, transparent, rgba(100,255,218,0.2), transparent);
       transition: 0.5s;
     }
 
-    button:hover::before {
+    button:hover:not(:disabled)::before {
       left: 100%;
+    }
+
+    .btn-fetch {
+      color: var(--accent);
+      border-color: var(--accent);
+      font-size: 14px;
+      padding: 8px 20px;
+    }
+
+    .btn-fetch:hover:not(:disabled) {
+      box-shadow: 0 0 15px rgba(100,255,218,0.3);
     }
 
     #output {
@@ -138,12 +252,12 @@
       border: 1px solid rgba(100,255,218,0.2);
       border-radius: 8px;
       white-space: pre-wrap;
-      max-height: 300px;
+      max-height: 350px;
       overflow-y: auto;
       word-wrap: break-word;
       font-family: 'Rajdhani', sans-serif;
       font-size: 14px;
-      line-height: 1.5;
+      line-height: 1.6;
     }
 
     #chatHistory {
@@ -168,21 +282,21 @@
       top: 0;
       width: 2px;
       height: 100%;
-      background: linear-gradient(to bottom, #64ffda, transparent);
+      background: linear-gradient(to bottom, var(--accent), transparent);
     }
 
     .command {
-      color: #64ffda;
+      color: var(--accent);
       font-weight: 600;
       padding-left: 20px;
       position: relative;
     }
 
     .command::before {
-      content: '>';
+      content: '?';
       position: absolute;
       left: 0;
-      color: #64ffda;
+      color: var(--accent);
     }
 
     .response {
@@ -201,13 +315,15 @@
     }
 
     h1, h2 {
-      color: #64ffda;
+      color: var(--accent);
       text-transform: uppercase;
       letter-spacing: 3px;
       margin-bottom: 20px;
       position: relative;
       display: inline-block;
     }
+
+    h1 { font-size: 1.6em; }
 
     h1::after, h2::after {
       content: '';
@@ -216,119 +332,58 @@
       left: 0;
       width: 100%;
       height: 2px;
-      background: linear-gradient(to right, #64ffda, transparent);
+      background: linear-gradient(to right, var(--accent), transparent);
     }
 
     em {
-      color: #64ffda;
+      color: var(--accent);
       font-style: normal;
-      border-bottom: 1px dotted #64ffda;
+      border-bottom: 1px dotted var(--accent);
     }
 
-    /* Custom scrollbar */
-    ::-webkit-scrollbar {
-      width: 8px;
-    }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: rgba(10,25,47,0.8); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(100,255,218,0.3); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(100,255,218,0.5); }
 
-    ::-webkit-scrollbar-track {
-      background: rgba(10,25,47,0.8);
-      border-radius: 4px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: rgba(100,255,218,0.3);
-      border-radius: 4px;
-      transition: all 0.3s ease;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: rgba(100,255,218,0.5);
-    }
-
-    /* Status indicators */
-    .status-indicator {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      margin-right: 8px;
-      animation: pulse 2s infinite;
-    }
-
-    .status-active {
-      background-color: #64ffda;
-    }
-
-    .status-error {
-      background-color: #ff6464;
-    }
-
-    /* Add some tech decoration elements */
-    .tech-decoration {
-      position: absolute;
-      font-family: monospace;
-      color: rgba(100,255,218,0.1);
-      pointer-events: none;
-      user-select: none;
-    }
-
-    .tech-decoration-1 {
-      top: 20px;
-      right: 20px;
-    }
-
-    .tech-decoration-2 {
-      bottom: 20px;
-      left: 20px;
-    }
-
-    /* Floating data particles */
+    /* Particles */
     .particles {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
       pointer-events: none;
       z-index: -1;
     }
     
     .particle {
       position: absolute;
-      width: 2px;
-      height: 2px;
+      width: 2px; height: 2px;
       background: var(--primary-color);
       border-radius: 50%;
       animation: particleFloat 20s infinite linear;
     }
 
     @keyframes particleFloat {
-      0% {
-        transform: translateY(100vh) translateX(0);
-        opacity: 0;
-      }
-      50% {
-        opacity: 1;
-      }
-      100% {
-        transform: translateY(-100px) translateX(100px);
-        opacity: 0;
-      }
+      0%   { transform: translateY(100vh) translateX(0); opacity: 0; }
+      50%  { opacity: 1; }
+      100% { transform: translateY(-100px) translateX(100px); opacity: 0; }
     }
 
-    /* Spinning globe */
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    /* Globe */
     .globe-container {
       position: absolute;
-      top: 270px;
-      right: 20px;
-      width: 100px;
-      height: 100px;
+      top: 270px; right: 20px;
+      width: 100px; height: 100px;
       perspective: 1000px;
     }
 
     .globe {
-      width: 100%;
-      height: 100%;
+      width: 100%; height: 100%;
       position: relative;
       transform-style: preserve-3d;
       animation: globeRotate 20s infinite linear;
@@ -337,8 +392,7 @@
     .globe::before {
       content: '';
       position: absolute;
-      width: 100%;
-      height: 100%;
+      width: 100%; height: 100%;
       border: 2px dotted rgba(100,255,218,0.3);
       border-radius: 50%;
       animation: globePulse 4s infinite ease-in-out;
@@ -347,14 +401,13 @@
     .globe::after {
       content: '';
       position: absolute;
-      width: 100%;
-      height: 100%;
+      width: 100%; height: 100%;
       background: radial-gradient(circle at 30% 30%, rgba(100,255,218,0.1), transparent);
       border-radius: 50%;
     }
 
     @keyframes globeRotate {
-      0% { transform: rotateY(0deg) rotateX(30deg); }
+      0%   { transform: rotateY(0deg) rotateX(30deg); }
       100% { transform: rotateY(360deg) rotateX(30deg); }
     }
 
@@ -363,13 +416,11 @@
       50% { transform: scale(1.1); opacity: 0.8; }
     }
 
-    /* Radar scan effect */
+    /* Radar */
     .radar {
       position: absolute;
-      top: 380px;
-      right: 20px;
-      width: 150px;
-      height: 150px;
+      top: 380px; right: 20px;
+      width: 150px; height: 150px;
       border-radius: 50%;
       background: rgba(0,24,50,0.9);
       border: 2px solid var(--primary-color);
@@ -378,8 +429,7 @@
 
     .radar-beam {
       position: absolute;
-      width: 50%;
-      height: 50%;
+      width: 50%; height: 50%;
       background: linear-gradient(45deg, var(--primary-color), transparent);
       transform-origin: 100% 100%;
       animation: radarScan 4s infinite linear;
@@ -387,16 +437,14 @@
 
     @keyframes radarScan {
       from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
+      to   { transform: rotate(360deg); }
     }
 
-    /* Flight path lines */
+    /* Flight paths */
     .flight-paths {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
       pointer-events: none;
     }
 
@@ -408,8 +456,8 @@
     }
 
     @keyframes flightPathMove {
-      0% { transform: translateX(-100%) translateY(100%); opacity: 0; }
-      50% { opacity: 1; }
+      0%   { transform: translateX(-100%) translateY(100%); opacity: 0; }
+      50%  { opacity: 1; }
       100% { transform: translateX(200%) translateY(-100%); opacity: 0; }
     }
 
@@ -417,53 +465,18 @@
     .container::before {
       content: '';
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      top: 0; left: 0; right: 0; bottom: 0;
       background: 
-        repeating-linear-gradient(
-          90deg,
-          rgba(100,255,218,0.03) 0px,
-          rgba(100,255,218,0.03) 1px,
-          transparent 1px,
-          transparent 30px
-        ),
-        repeating-linear-gradient(
-          0deg,
-          rgba(100,255,218,0.03) 0px,
-          rgba(100,255,218,0.03) 1px,
-          transparent 1px,
-          transparent 30px
-        );
+        repeating-linear-gradient(90deg, rgba(100,255,218,0.03) 0px, rgba(100,255,218,0.03) 1px, transparent 1px, transparent 30px),
+        repeating-linear-gradient(0deg, rgba(100,255,218,0.03) 0px, rgba(100,255,218,0.03) 1px, transparent 1px, transparent 30px);
       pointer-events: none;
     }
 
-    /* Classified stamp effect */
-    .classified {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      transform: rotate(-15deg);
-      font-family: 'Courier New', monospace;
-      font-size: 1.2em;
-      color: rgba(255,100,100,0.7);
-      border: 2px solid rgba(255,100,100,0.7);
-      padding: 5px 15px;
-      text-transform: uppercase;
-      pointer-events: none;
-      background: rgba(0,24,50,0.8);
-      z-index: 2;
-      box-shadow: 0 0 10px rgba(255,100,100,0.2);
-    }
-
-    /* Status indicators enhancement */
+    /* Status bar */
     .status-bar {
       position: absolute;
-      top: 20px;
-      left: 20px;
-      display: flex;
-      gap: 20px;
+      top: 20px; left: 20px;
+      display: flex; gap: 20px;
       font-family: monospace;
       font-size: 0.8em;
     }
@@ -475,10 +488,9 @@
     }
 
     .status-led {
-      width: 8px;
-      height: 8px;
+      width: 8px; height: 8px;
       border-radius: 50%;
-      background: #64ffda;
+      background: var(--accent);
       animation: ledPulse 2s infinite;
     }
 
@@ -487,124 +499,80 @@
       50% { opacity: 1; }
     }
 
-    /* Add aircraft schematic decorations */
-    .schematic {
+    /* Classified stamp */
+    .classified {
       position: absolute;
-      width: 200px;
-      height: 200px;
-      border: 1px solid var(--primary-color);
-      opacity: 0.2;
+      top: 20px; right: 20px;
+      transform: rotate(-15deg);
+      font-family: 'Courier New', monospace;
+      font-size: 1.2em;
+      color: rgba(100,255,218,0.6);
+      border: 2px solid rgba(100,255,218,0.6);
+      padding: 5px 15px;
+      text-transform: uppercase;
       pointer-events: none;
-    }
-
-    .schematic-top {
-      top: 20px;
-      right: 20px;
-      background: 
-        linear-gradient(90deg, transparent 47%, var(--primary-color) 47%, var(--primary-color) 53%, transparent 53%),
-        linear-gradient(0deg, transparent 47%, var(--primary-color) 47%, var(--primary-color) 53%, transparent 53%);
-    }
-
-    .schematic-side {
-      bottom: 20px;
-      left: 20px;
-      transform: rotate(45deg);
-    }
-
-    /* Add technical data overlay */
-    .technical-overlay {
-      position: absolute;
-      top: 20px;
-      right: 280px;
-      padding: 15px;
-      font-family: monospace;
-      font-size: 12px;
-      color: var(--primary-color);
-      opacity: 0.7;
-      text-align: right;
       background: rgba(0,24,50,0.8);
-      border: 1px solid rgba(0,168,255,0.3);
-      border-radius: 4px;
+      z-index: 2;
+      box-shadow: 0 0 10px rgba(100,255,218,0.2);
     }
 
-    /* Add measurement lines */
-    .measurement-line {
+    .tech-decoration {
       position: absolute;
-      background: var(--primary-color);
-      opacity: 0.3;
-    }
-
-    .measurement-horizontal {
-      height: 1px;
-      width: 100px;
-    }
-
-    .measurement-vertical {
-      width: 1px;
-      height: 100px;
-    }
-
-    /* Add coordinate markers */
-    .coordinate-marker {
-      position: absolute;
-      font-size: 10px;
-      color: var(--primary-color);
-      opacity: 0.5;
-    }
-
-    /* Add database-style list styling */
-    .database-list {
-      position: absolute;
-      left: 20px;
-      top: 20px;
-      width: 200px;
       font-family: monospace;
-      font-size: 12px;
-      color: var(--primary-color);
-      background: rgba(0,24,50,0.9);
-      border: 1px solid var(--primary-color);
-      padding: 10px;
+      color: rgba(100,255,218,0.1);
+      pointer-events: none;
+      user-select: none;
     }
 
-    .database-item {
-      padding: 4px 0;
-      border-bottom: 1px solid rgba(0,168,255,0.2);
+    .tech-decoration-1 { top: 20px; right: 20px; }
+    .tech-decoration-2 { bottom: 20px; left: 20px; }
+
+    .example-questions {
+      margin-top: 10px;
       display: flex;
-      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
     }
 
-    /* Add wave visualization */
-    .wave-container {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
-      width: 200px;
-      height: 60px;
-      background: rgba(0,24,50,0.9);
-      border: 1px solid var(--primary-color);
+    .example-q {
+      font-size: 12px;
+      padding: 4px 10px;
+      border: 1px solid rgba(0,168,255,0.3);
+      border-radius: 12px;
+      color: rgba(128,199,255,0.6);
+      cursor: pointer;
+      transition: all 0.2s;
+      background: transparent;
+      font-family: 'Rajdhani', sans-serif;
+      letter-spacing: 0;
+      text-transform: none;
     }
 
-    .wave {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(180deg, transparent, var(--primary-color));
-      opacity: 0.2;
-      animation: waveAnimation 2s infinite ease-in-out;
+    .example-q:hover {
+      color: var(--primary-color);
+      border-color: var(--primary-color);
+      background: rgba(0,168,255,0.1);
     }
 
-    @keyframes waveAnimation {
-      0%, 100% { transform: scaleY(0.2); }
-      50% { transform: scaleY(0.8); }
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(100,255,218,0.3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
     }
 
-    /* Add server status indicators */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Server status */
     .server-status {
       position: absolute;
-      right: 20px;
-      top: 50%;
+      right: 20px; top: 50%;
       transform: translateY(-50%);
       display: flex;
       flex-direction: column;
@@ -621,8 +589,7 @@
     }
 
     .server-indicator {
-      width: 12px;
-      height: 12px;
+      width: 12px; height: 12px;
       background: var(--primary-color);
       animation: serverPulse 1.5s infinite;
     }
@@ -632,28 +599,13 @@
       50% { opacity: 1; }
       100% { opacity: 0.3; }
     }
-
-    /* Remove the entire aircraft-schematic block and related styles */
-    .aircraft-schematic,
-    .aircraft-drawing,
-    .aircraft,
-    .aircraft-top,
-    .aircraft-side,
-    .aircraft-front,
-    .measurement-label,
-    .view-label {
-        display: none;
-    }
   </style>
 </head>
 <body>
-  <!-- Keep the existing HTML structure but add tech decorations -->
-  <div class="tech-decoration tech-decoration-1">SYSTEM.ACTIVE_[2.4.1]</div>
-  <div class="tech-decoration tech-decoration-2">SECURE.PROTOCOL.ENABLED</div>
+  <div class="tech-decoration tech-decoration-1">PAIRING.ANALYZER_[1.0]</div>
+  <div class="tech-decoration tech-decoration-2">DATA.PIPELINE.ACTIVE</div>
   
-  <div class="particles">
-    <!-- Particles will be added by JavaScript -->
-  </div>
+  <div class="particles"></div>
   
   <div class="globe-container">
     <div class="globe"></div>
@@ -663,248 +615,265 @@
     <div class="radar-beam"></div>
   </div>
   
-  <div class="flight-paths">
-    <!-- Flight paths will be added by JavaScript -->
-  </div>
+  <div class="flight-paths"></div>
   
   <div class="status-bar">
-    <div class="status-item">
-      <div class="status-led"></div>
-      SECURE_LINK
-    </div>
-    <div class="status-item">
-      <div class="status-led"></div>
-      ENCRYPTION
-    </div>
-    <div class="status-item">
-      <div class="status-led"></div>
-      SAT_UPLINK
-    </div>
+    <div class="status-item"><div class="status-led"></div>RAIDO_LINK</div>
+    <div class="status-item"><div class="status-led"></div>AI_ENGINE</div>
+    <div class="status-item"><div class="status-led"></div>DATA_PIPE</div>
   </div>
 
-  <div class="classified">Top Secret</div>
+  <div class="classified">Pairing Intel</div>
 
   <div class="container">
     <div class="input-section">
-      <h1>Advanced Optimization Control System</h1>
-      <p>Enter a command (e.g., <em>run optimization with base BUR seat FA</em> or <em>commands</em>):</p>
-      <textarea id="commandInput" placeholder="Enter Command Here"></textarea>
+      <h1>Pairing Analyzer</h1>
+
+      <!-- Data fetch controls -->
+      <div class="data-controls">
+        <div>
+          <label>Start Date</label>
+          <input type="date" id="startDate">
+        </div>
+        <div>
+          <label>End Date</label>
+          <input type="date" id="endDate">
+        </div>
+        <div>
+          <label>Or Days</label>
+          <input type="number" id="numDays" value="30" min="1" max="90">
+        </div>
+        <button class="btn-fetch" id="fetchBtn" onclick="fetchData()">Fetch Pairings</button>
+      </div>
+
+      <div id="statusBadge" class="status-badge no-data">
+        <div class="status-dot"></div>
+        <span id="statusText">No Data Loaded</span>
+      </div>
+
+      <div id="dataSummary" class="data-summary"></div>
+
+      <p>Ask anything about pairings, duties, or legs:</p>
+      <textarea id="questionInput" placeholder="e.g. How many duties are in each base?" disabled></textarea>
       <br />
-      <button onclick="sendCommand()">Execute Command</button>
+      <button id="askBtn" onclick="askQuestion()" disabled>Ask Question</button>
+
+      <div class="example-questions" id="exampleQuestions">
+        <button class="example-q" onclick="fillQuestion(this)">How many duties in each base?</button>
+        <button class="example-q" onclick="fillQuestion(this)">Average block hours per duty by base?</button>
+        <button class="example-q" onclick="fillQuestion(this)">Which pairings have 5+ legs in a day?</button>
+        <button class="example-q" onclick="fillQuestion(this)">Show all charter pairings</button>
+        <button class="example-q" onclick="fillQuestion(this)">Earliest and latest check-in times by base?</button>
+        <button class="example-q" onclick="fillQuestion(this)">How many deadhead legs per base?</button>
+      </div>
+
       <div id="output"></div>
     </div>
     <div class="history-section">
-      <h2>Command Log</h2>
+      <h2>Query Log</h2>
       <div id="chatHistory"></div>
     </div>
   </div>
-  
-  <div class="schematic schematic-top"></div>
-  <div class="schematic schematic-side"></div>
-
-  <div class="technical-overlay">
-    LAT: 34°56'12"N<br>
-    LON: 118°23'45"W<br>
-    ALT: 35,000 FT<br>
-    SPD: 540 KTS<br>
-    HDG: 270°
-  </div>
-
-  <div class="coordinate-markers">
-    <!-- Add multiple coordinate markers -->
-    <div class="coordinate-marker" style="top: 50px; left: 100px">A1</div>
-    <div class="coordinate-marker" style="top: 150px; right: 100px">B2</div>
-    <div class="coordinate-marker" style="bottom: 50px; left: 200px">C3</div>
-  </div>
-
-  <div class="measurement-lines">
-    <!-- Add multiple measurement lines -->
-    <div class="measurement-line measurement-horizontal" style="top: 100px; left: 50px"></div>
-    <div class="measurement-line measurement-vertical" style="top: 150px; right: 100px"></div>
-  </div>
-  
-  <div class="database-list">
-    <div class="database-item">
-      <span>STATUS</span>
-      <span>CODE</span>
-      <span>TIME</span>
-    </div>
-    <!-- Items will be added by JavaScript -->
-  </div>
-
-  <div class="wave-container">
-    <div class="wave"></div>
-  </div>
 
   <div class="server-status">
-    <div class="server">
-      <div class="server-indicator"></div>
-      SERVER 83
-    </div>
-    <div class="server">
-      <div class="server-indicator"></div>
-      SERVER 84
-    </div>
-    <div class="server">
-      <div class="server-indicator"></div>
-      SERVER 85
-    </div>
+    <div class="server"><div class="server-indicator"></div>RAIDO API</div>
+    <div class="server"><div class="server-indicator"></div>CLAUDE AI</div>
+    <div class="server"><div class="server-indicator"></div>ANALYZER</div>
   </div>
 
-  <!-- Add audio elements -->
-  <audio id="beepSound" preload="auto">
-    <source src="data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQwAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAASAAAhIQAYGBgYJSUlJSUyMjIyMj4+Pj4+S0tLS0tYWFhYWGVlZWVlcnJycnJ+fn5+fpubm5ubqKioqKi1tbW1tcLCwsLC0NDQ0NDd3d3d3enp6enp9vb29vb///////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAYAAAAAAAAAISHCxJxhAAAAAAAAAAAAAAAAAAAA//sQxAADwAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/+xDEFAPAAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV" type="audio/mp3">
-  </audio>
-  <audio id="scanSound" preload="auto">
-    <source src="data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQwAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAASAAAhIQAYGBgYJSUlJSUyMjIyMj4+Pj4+S0tLS0tYWFhYWGVlZWVlcnJycnJ+fn5+fpubm5ubqKioqKi1tbW1tcLCwsLC0NDQ0NDd3d3d3enp6enp9vb29vb///////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAYAAAAAAAAAISHh6PThAAAAAAAAAAAAAAAAAAAA//sQxAADwAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/+xDEFAPAAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV" type="audio/mp3">
-  </audio>
-  
   <script>
-    // Add event listener for Enter key
-    document.getElementById('commandInput').addEventListener('keypress', function(e) {
-        // Check if Enter was pressed without Shift (Shift+Enter allows for new lines)
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault(); // Prevent default behavior (new line)
-            sendCommand(); // Send the command
+    // Set default dates
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    document.getElementById('startDate').value = todayStr;
+    const endDate = new Date(today);
+    endDate.setDate(endDate.getDate() + 30);
+    document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+
+    // Check existing data status on load
+    (async function checkStatus() {
+      try {
+        const res = await fetch('/status');
+        const status = await res.json();
+        if (status.loaded) updateStatusUI(status);
+      } catch(e) {}
+    })();
+
+    function updateStatusUI(status) {
+      const badge = document.getElementById('statusBadge');
+      const text = document.getElementById('statusText');
+      const summary = document.getElementById('dataSummary');
+      const qInput = document.getElementById('questionInput');
+      const askBtn = document.getElementById('askBtn');
+
+      if (status.loading) {
+        badge.className = 'status-badge loading';
+        text.innerHTML = '<span class="spinner"></span>Loading Data...';
+        qInput.disabled = true;
+        askBtn.disabled = true;
+        return;
+      }
+
+      if (status.loaded && status.num_pairings > 0) {
+        badge.className = 'status-badge loaded';
+        text.textContent = 'Data Loaded';
+        summary.className = 'data-summary visible';
+        summary.innerHTML =
+          `<strong>${status.num_pairings}</strong> pairings &middot; ` +
+          `<strong>${status.num_duties}</strong> duties &middot; ` +
+          `<strong>${status.num_legs}</strong> legs<br>` +
+          `Bases: <strong>${status.bases.join(', ')}</strong><br>` +
+          `Date range: <strong>${status.date_range}</strong>`;
+        qInput.disabled = false;
+        askBtn.disabled = false;
+      } else if (status.loaded) {
+        badge.className = 'status-badge no-data';
+        text.textContent = 'No Pairings Found';
+        summary.className = 'data-summary';
+        qInput.disabled = true;
+        askBtn.disabled = true;
+      } else {
+        badge.className = 'status-badge no-data';
+        text.textContent = 'No Data Loaded';
+        summary.className = 'data-summary';
+        qInput.disabled = true;
+        askBtn.disabled = true;
+      }
+    }
+
+    async function fetchData() {
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      const numDays = document.getElementById('numDays').value;
+      const fetchBtn = document.getElementById('fetchBtn');
+      const output = document.getElementById('output');
+
+      if (!startDate) {
+        output.innerHTML = '<span style="color:#ff6464">Please select a start date.</span>';
+        return;
+      }
+
+      fetchBtn.disabled = true;
+      fetchBtn.innerHTML = '<span class="spinner"></span>Fetching...';
+      updateStatusUI({ loading: true });
+      output.innerHTML = '<span class="spinner"></span> Fetching pairing data from RAIDO API... This may take a moment.';
+
+      try {
+        const body = { start_date: startDate };
+        if (endDate) body.end_date = endDate;
+        else body.days = parseInt(numDays) || 30;
+
+        const res = await fetch('/fetch-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Fetch failed');
         }
+
+        output.textContent = data.message || 'Data loaded.';
+        if (data.status) updateStatusUI(data.status);
+
+      } catch (err) {
+        output.innerHTML = `<span style="color:#ff6464">Error: ${err.message}</span>`;
+        updateStatusUI({ loaded: false });
+      } finally {
+        fetchBtn.disabled = false;
+        fetchBtn.textContent = 'Fetch Pairings';
+      }
+    }
+
+    function fillQuestion(btn) {
+      const qInput = document.getElementById('questionInput');
+      if (!qInput.disabled) {
+        qInput.value = btn.textContent;
+        qInput.focus();
+      }
+    }
+
+    document.getElementById('questionInput').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        askQuestion();
+      }
     });
 
-    async function sendCommand() {
-        const commandInput = document.getElementById('commandInput');
-        const command = commandInput.value;
-        
-        if (!command) return;
+    async function askQuestion() {
+      const qInput = document.getElementById('questionInput');
+      const question = qInput.value.trim();
+      if (!question) return;
 
-        try {
-            const response = await fetch('/command', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ command: command })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            let statusHtml = '';
-            
-            // Create chat history entry
-            const historyEntry = document.createElement('div');
-            historyEntry.className = 'chat-entry';
-            
-            // Add timestamp
-            const timestamp = document.createElement('div');
-            timestamp.className = 'timestamp';
-            timestamp.textContent = new Date().toLocaleTimeString();
-            historyEntry.appendChild(timestamp);
-            
-            // Add command
-            const commandDiv = document.createElement('div');
-            commandDiv.className = 'command';
-            commandDiv.textContent = `> ${command}`;
-            historyEntry.appendChild(commandDiv);
-            
-            // Add response
-            const responseDiv = document.createElement('div');
-            responseDiv.className = 'response';
-            
-            // Handle different types of responses
-            if (data.instructions) {
-                responseDiv.innerHTML = data.instructions.replace(/\n/g, '<br>');
-            } else if (data.logs) {
-                responseDiv.innerHTML = data.logs.join('<br>');
-            } else if (data.message) {
-                responseDiv.textContent = data.message;
-            } else if (data.all_statuses) {
-                statusHtml = data.all_statuses.map(status => {
-                    let statusText = `<strong>Base ${status.base}-${status.seat}:</strong><br>`;
-                    if (status.error) {
-                        statusText += `Error: ${status.error}`;
-                    } else if (status.running !== undefined) {
-                        statusText += status.running ? "Status: Currently Running<br>" : "";
-                        if (status.status_info) {
-                            statusText += `${status.status_info}<br>`;
-                        }
-                        if (status.last_updated) {
-                            statusText += `Last Updated: ${status.last_updated}`;
-                        }
-                    } else {
-                        statusText += `Status: ${status.status}`;
-                        if (status.error) {
-                            statusText += `<br>Error: ${status.error}`;
-                        }
-                    }
-                    return statusText;
-                }).join('<br><br>');
-                responseDiv.innerHTML = statusHtml;
-            }
-            
-            historyEntry.appendChild(responseDiv);
-            
-            // Add to chat history
-            const chatHistory = document.getElementById('chatHistory');
-            chatHistory.insertBefore(historyEntry, chatHistory.firstChild);
-            
-            // Ensure proper scrolling after adding new entry
-            historyEntry.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            
-            // Clear the input box after sending
-            commandInput.value = '';
-            
-            // Update output area
-            const outputDiv = document.getElementById('output');
-            if (data.instructions) {
-                outputDiv.innerHTML = data.instructions.replace(/\n/g, '<br>');
-            } else if (data.logs) {
-                outputDiv.innerHTML = data.logs.join('<br>');
-            } else if (data.message) {
-                outputDiv.textContent = data.message;
-            } else if (data.all_statuses) {
-                outputDiv.innerHTML = statusHtml;
-            }
-            
-            // Update the output area scrolling
-            outputDiv.scrollTop = 0;
-            
-            // Play success sound
-            const beepSound = document.getElementById('beepSound');
-            beepSound.currentTime = 0;
-            beepSound.play();
-            
-        } catch (error) {
-            console.error('Error:', error);
-            const outputDiv = document.getElementById('output');
-            outputDiv.innerHTML = `<p style="color: #ff6464;">Error sending command: ${error.message}</p>`;
-            
-            // Add error to chat history
-            const historyEntry = document.createElement('div');
-            historyEntry.className = 'chat-entry';
-            historyEntry.innerHTML = `
-                <div class="timestamp">${new Date().toLocaleTimeString()}</div>
-                <div class="command">> ${command}</div>
-                <div class="response" style="color: #ff6464;">Error: ${error.message}</div>
-            `;
-            document.getElementById('chatHistory').insertBefore(historyEntry, document.getElementById('chatHistory').firstChild);
+      const askBtn = document.getElementById('askBtn');
+      const output = document.getElementById('output');
+
+      askBtn.disabled = true;
+      askBtn.innerHTML = '<span class="spinner"></span>Analyzing...';
+      output.innerHTML = '<span class="spinner"></span> Analyzing your question...';
+
+      try {
+        const res = await fetch('/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: question })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Query failed');
         }
+
+        const answer = data.answer || 'No answer returned.';
+        output.textContent = answer;
+
+        // Add to history
+        const historyEntry = document.createElement('div');
+        historyEntry.className = 'chat-entry';
+
+        const ts = document.createElement('div');
+        ts.className = 'timestamp';
+        ts.textContent = new Date().toLocaleTimeString();
+        historyEntry.appendChild(ts);
+
+        const cmdDiv = document.createElement('div');
+        cmdDiv.className = 'command';
+        cmdDiv.textContent = question;
+        historyEntry.appendChild(cmdDiv);
+
+        const respDiv = document.createElement('div');
+        respDiv.className = 'response';
+        respDiv.textContent = answer;
+        historyEntry.appendChild(respDiv);
+
+        const chatHistory = document.getElementById('chatHistory');
+        chatHistory.insertBefore(historyEntry, chatHistory.firstChild);
+
+        qInput.value = '';
+
+      } catch (err) {
+        output.innerHTML = `<span style="color:#ff6464">Error: ${err.message}</span>`;
+      } finally {
+        askBtn.disabled = false;
+        askBtn.textContent = 'Ask Question';
+      }
     }
 
-    // Create floating particles
+    // Particles
     const particles = document.querySelector('.particles');
-    for(let i = 0; i < 50; i++) {
-      const particle = document.createElement('div');
-      particle.className = 'particle';
-      particle.style.left = Math.random() * 100 + 'vw';
-      particle.style.animationDelay = Math.random() * 20 + 's';
-      particle.style.animationDuration = 10 + Math.random() * 20 + 's';
-      particles.appendChild(particle);
+    for (let i = 0; i < 50; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      p.style.left = Math.random() * 100 + 'vw';
+      p.style.animationDelay = Math.random() * 20 + 's';
+      p.style.animationDuration = 10 + Math.random() * 20 + 's';
+      particles.appendChild(p);
     }
 
-    // Create flight paths
+    // Flight paths
     const flightPaths = document.querySelector('.flight-paths');
-    for(let i = 0; i < 5; i++) {
+    for (let i = 0; i < 5; i++) {
       const path = document.createElement('div');
       path.className = 'flight-path';
       path.style.top = Math.random() * 100 + '%';
@@ -913,7 +882,7 @@
       flightPaths.appendChild(path);
     }
 
-    // Add scanning effect to radar
+    // Radar blips
     const radar = document.querySelector('.radar');
     setInterval(() => {
       const blip = document.createElement('div');
@@ -928,84 +897,6 @@
       radar.appendChild(blip);
       setTimeout(() => blip.remove(), 2000);
     }, 2000);
-
-    // Add dynamic measurement lines
-    function addMeasurementLines() {
-        const container = document.querySelector('.container');
-        for(let i = 0; i < 10; i++) {
-            const line = document.createElement('div');
-            line.className = 'measurement-line ' + 
-                           (Math.random() > 0.5 ? 'measurement-horizontal' : 'measurement-vertical');
-            line.style.top = Math.random() * 100 + '%';
-            line.style.left = Math.random() * 100 + '%';
-            container.appendChild(line);
-        }
-    }
-
-    // Add dynamic coordinate markers
-    function addCoordinateMarkers() {
-        const container = document.querySelector('.container');
-        for(let i = 0; i < 8; i++) {
-            const marker = document.createElement('div');
-            marker.className = 'coordinate-marker';
-            marker.textContent = `P${i + 1}`;
-            marker.style.top = Math.random() * 100 + '%';
-            marker.style.left = Math.random() * 100 + '%';
-            container.appendChild(marker);
-        }
-    }
-
-    // Initialize new elements
-    addMeasurementLines();
-    addCoordinateMarkers();
-
-    // Add database list items
-    const databaseList = document.querySelector('.database-list');
-    setInterval(() => {
-        const item = document.createElement('div');
-        item.className = 'database-item';
-        item.innerHTML = `
-            <span>ACTIVE</span>
-            <span>${Math.random().toString(16).substr(2, 4).toUpperCase()}</span>
-            <span>${new Date().toLocaleTimeString()}</span>
-        `;
-        if (databaseList.children.length > 8) {
-            databaseList.removeChild(databaseList.children[1]);
-        }
-        databaseList.appendChild(item);
-    }, 3000);
-
-    // Add Star Trek style sound effects
-    const beepSound = document.getElementById('beepSound');
-    const scanSound = document.getElementById('scanSound');
-
-    // Play sounds on various interactions
-    document.querySelector('button').addEventListener('mouseenter', () => {
-        beepSound.currentTime = 0;
-        beepSound.play();
-    });
-
-    document.querySelector('textarea').addEventListener('focus', () => {
-        scanSound.currentTime = 0;
-        scanSound.play();
-    });
-
-    // Play random beeps occasionally
-    setInterval(() => {
-        if (Math.random() > 0.7) {
-            beepSound.currentTime = 0;
-            beepSound.play();
-        }
-    }, 5000);
-
-    // Add multiple waves
-    const waveContainer = document.querySelector('.wave-container');
-    for (let i = 0; i < 3; i++) {
-        const wave = document.createElement('div');
-        wave.className = 'wave';
-        wave.style.animationDelay = `${i * 0.3}s`;
-        waveContainer.appendChild(wave);
-    }
   </script>
 </body>
-</html> 
+</html>
