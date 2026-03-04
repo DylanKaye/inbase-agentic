@@ -11,7 +11,14 @@ import uvicorn
 from pair_analyzer import read_pairings
 from pairing_query_engine import PairingsQueryEngine
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+def _load_api_key():
+    key_file = os.path.join(os.path.dirname(__file__), "anthropic_key.txt")
+    if os.path.exists(key_file):
+        with open(key_file) as f:
+            return f.read().strip()
+    return os.environ.get("ANTHROPIC_API_KEY", "")
+
+ANTHROPIC_API_KEY = _load_api_key()
 
 app = FastAPI(title="Pairing Analyzer")
 
