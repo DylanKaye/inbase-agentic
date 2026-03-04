@@ -82,7 +82,7 @@ def extract_complement(pairing):
         descs_sorted = sorted(descs, key=lambda d: int(d.get('@Order', 0)))
     except (ValueError, TypeError):
         descs_sorted = descs
-    return '|'.join(d.get('#text', '') for d in descs_sorted)
+    return '|'.join((d.get('#text') or '') for d in descs_sorted)
 
 
 # ---------------------------------------------------------------------------
@@ -152,18 +152,17 @@ def read_pairings(start_date, end_date):
     leg_rows = []
 
     for pairing in pairings:
-        p_name = pairing.get('Name', '')
-        p_uid = pairing.get('UniqueId', '')
-        p_base = pairing.get('Base', '')
-        p_start = pairing.get('Start', '')
-        p_end = pairing.get('End', '')
-        p_qualification = pairing.get('Qualification', '')
-        p_complement = pairing.get('Complement', '')
-        p_credit = pairing.get('Credit', '')
-        p_is_historical = pairing.get('IsHistorical', '')
-        p_pairing_class = pairing.get('PairingClass', '')
+        p_name = pairing.get('Name') or ''
+        p_uid = pairing.get('UniqueId') or ''
+        p_base = pairing.get('Base') or ''
+        p_start = pairing.get('Start') or ''
+        p_end = pairing.get('End') or ''
+        p_qualification = pairing.get('Qualification') or ''
+        p_complement = pairing.get('Complement') or ''
+        p_credit = pairing.get('Credit') or ''
+        p_is_historical = pairing.get('IsHistorical') or ''
+        p_pairing_class = pairing.get('PairingClass') or ''
 
-        # Charter detection: pairing name starts with 'C'
         is_charter = p_name.startswith('C')
 
         # Required crew complement from ComplementDescriptions
@@ -182,15 +181,15 @@ def read_pairings(start_date, end_date):
                 crew_data = entry.get('Crew', {})
                 if crew_data:
                     crew_list.append({
-                        'crew_id': crew_data.get('UniqueId', ''),
-                        'crew_number': crew_data.get('Number', ''),
-                        'first_name': crew_data.get('Firstname', ''),
-                        'last_name': crew_data.get('Lastname', ''),
-                        'seniority': crew_data.get('Seniority', ''),
-                        'gender': crew_data.get('Gender', ''),
-                        'assigned_rank': assigned_rank,
-                        'crew_rank': crew_data.get('Rank', ''),
-                        'crew_base': crew_data.get('Base', ''),
+                        'crew_id': crew_data.get('UniqueId') or '',
+                        'crew_number': crew_data.get('Number') or '',
+                        'first_name': crew_data.get('Firstname') or '',
+                        'last_name': crew_data.get('Lastname') or '',
+                        'seniority': crew_data.get('Seniority') or '',
+                        'gender': crew_data.get('Gender') or '',
+                        'assigned_rank': assigned_rank or '',
+                        'crew_rank': crew_data.get('Rank') or '',
+                        'crew_base': crew_data.get('Base') or '',
                     })
 
         crew_names = '|'.join(f"{c['first_name']} {c['last_name']}".strip()
@@ -246,10 +245,10 @@ def read_pairings(start_date, end_date):
             non_flight_acts = [a for a in duty_acts if a.get('ActivityType') != 'FLIGHT']
 
             # Activity codes for ALL activities in the duty
-            all_activity_codes = [a.get('ActivityCode', '') for a in duty_acts]
+            all_activity_codes = [a.get('ActivityCode') or '' for a in duty_acts]
 
             # Flight-only codes and counts
-            flight_codes = [a.get('ActivityCode', '') for a in flight_acts]
+            flight_codes = [a.get('ActivityCode') or '' for a in flight_acts]
             num_flight_legs = len(flight_acts)
 
             # DH detection: ActivityCode == 'DH'
@@ -263,7 +262,7 @@ def read_pairings(start_date, end_date):
             pairing_total_flight_legs += num_flight_legs
 
             # Non-flight activity codes (meal breaks, etc.)
-            non_flight_codes = [a.get('ActivityCode', '') for a in non_flight_acts]
+            non_flight_codes = [a.get('ActivityCode') or '' for a in non_flight_acts]
 
             # Block hours: sum (End - Start) for live flight legs only (not DH, not non-flight)
             total_block_sec = 0
@@ -335,14 +334,14 @@ def read_pairings(start_date, end_date):
             day_of_week = local_start.strftime('%A')
 
             # --- Stations -------------------------------------------------------
-            dep_station = duty_acts[0].get('StartAirportCode', '')
-            arr_station = duty_acts[-1].get('EndAirportCode', '')
+            dep_station = duty_acts[0].get('StartAirportCode') or ''
+            arr_station = duty_acts[-1].get('EndAirportCode') or ''
             all_stations_visited.append(dep_station)
 
             # Full route: every airport in order
             route_parts = [dep_station]
             for a in duty_acts:
-                end_apt = a.get('EndAirportCode', '')
+                end_apt = a.get('EndAirportCode') or ''
                 if end_apt and end_apt != route_parts[-1]:
                     route_parts.append(end_apt)
                     all_stations_visited.append(end_apt)
@@ -355,8 +354,9 @@ def read_pairings(start_date, end_date):
             # --- Overnight -------------------------------------------------------
             overnight_station = ''
             if hotel_act is not None:
-                overnight_station = hotel_act.get('StartAirportCode',
-                                    hotel_act.get('EndAirportCode', arr_station))
+                overnight_station = (hotel_act.get('StartAirportCode')
+                                     or hotel_act.get('EndAirportCode')
+                                     or arr_station)
             elif duty_idx < num_duties - 1:
                 overnight_station = arr_station
             is_overnight = overnight_station != ''
@@ -395,7 +395,7 @@ def read_pairings(start_date, end_date):
             # Equipment type (from the first flight leg)
             equipment_type = ''
             if flight_acts:
-                equipment_type = flight_acts[0].get('EquipmentType', '')
+                equipment_type = flight_acts[0].get('EquipmentType') or ''
 
             # ----- DUTY ROW ----------------------------------------------------
             duty_rows.append({
@@ -434,12 +434,12 @@ def read_pairings(start_date, end_date):
 
             # ----- LEG ROWS ----------------------------------------------------
             for leg_idx, a in enumerate(duty_acts):
-                code = a.get('ActivityCode', '')
-                act_type = a.get('ActivityType', '')
-                act_subtype = a.get('ActivitySubType', '')
-                leg_dep = a.get('StartAirportCode', '')
-                leg_arr = a.get('EndAirportCode', '')
-                equip = a.get('EquipmentType', '')
+                code = a.get('ActivityCode') or ''
+                act_type = a.get('ActivityType') or ''
+                act_subtype = a.get('ActivitySubType') or ''
+                leg_dep = a.get('StartAirportCode') or ''
+                leg_arr = a.get('EndAirportCode') or ''
+                equip = a.get('EquipmentType') or ''
 
                 try:
                     ls = pd.to_datetime(a['Start'])
